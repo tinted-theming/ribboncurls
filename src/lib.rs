@@ -30,6 +30,7 @@ const DEFAULT_RIGHT_DELIMITER: &str = "}}";
 enum Tag {
     Comment,
     Interpolation(String),
+    Partial(String),
     SectionStart(String),
     SectionEnd(String),
     InvertedSectionStart(String),
@@ -67,12 +68,25 @@ fn render_with_context<'a>(
         }
 
         if is_at_start_of_line {
+            let indent = leading_indent(input);
             if let Ok((remaining_input, tag)) = parse_standalone_tag_line(input, &ctx) {
                 input = remaining_input;
                 match tag {
                     Tag::Comment => {}
                     Tag::Interpolation(value) => {
                         output.push_str(&value);
+                    }
+                    Tag::Partial(value) => {
+                        if !indent.is_empty() {
+                            for line in value.lines() {
+                                output.push_str(indent);
+                                output.push_str(line);
+                                output.push('\n');
+                            }
+                            output.pop(); // pop the last newline
+                        } else {
+                            output.push_str(&value);
+                        }
                     }
                     Tag::DelimiterChange(left, right) => {
                         ctx.left_delimiter = left;
@@ -138,6 +152,9 @@ fn render_with_context<'a>(
             match tag {
                 Tag::Comment => {}
                 Tag::Interpolation(value) => {
+                    output.push_str(&value);
+                }
+                Tag::Partial(value) => {
                     output.push_str(&value);
                 }
                 Tag::DelimiterChange(left, right) => {
@@ -284,10 +301,10 @@ fn parse_tag<'a>(input: &'a str, ctx: &ParseContext) -> Result<(&'a str, Tag), V
                     close_tag_stack: ctx.close_tag_stack.clone(),
                 };
                 if ctx.skipping {
-                    Ok((remaining_input, Tag::Interpolation("".to_string())))
+                    Ok((remaining_input, Tag::Partial("".to_string())))
                 } else {
                     let (_, output) = render_with_context(&value_as_string, &mut child_ctx)?;
-                    Ok((remaining_input, Tag::Interpolation(output)))
+                    Ok((remaining_input, Tag::Partial(output)))
                 }
             }
             None => Err(VMError::MissingDelimiter),
@@ -425,4 +442,9 @@ fn value_as_sequence(value: &Value) -> Vec<Value> {
         Value::Mapping(_) => vec![value.clone()],
         Value::Tagged(_) => vec![value.clone()],
     }
+}
+
+fn leading_indent(s: &str) -> &str {
+    let spaces_len = s.chars().take_while(|&c| c == ' ').count();
+    &s[..spaces_len]
 }
