@@ -243,6 +243,9 @@ fn parse_standalone_tag_line<'a>(
     if input_without_indent.starts_with(&ctx.left_delimiter) {
         let (remaining_input, tag) =
             parse_tag(&input_without_indent[ctx.left_delimiter.len()..], &ctx)?;
+        if let Tag::Interpolation(_) = tag {
+            return Err(VMError::NotMatching);
+        }
         return if remaining_input.is_empty() {
             Ok((remaining_input, tag))
         } else if remaining_input.starts_with("\r\n") {
