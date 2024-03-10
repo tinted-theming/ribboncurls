@@ -10,7 +10,7 @@ pub enum VMError {
     #[error("blah")]
     NotMatching,
     #[error("bad input")]
-    YamlParseError(#[from] serde_yaml::Error)
+    YamlParseError(#[from] serde_yaml::Error),
 }
 
 struct ParseContext {
@@ -29,21 +29,21 @@ enum Tag {
     SectionStart(String),
     SectionEnd(String),
     InvertedSectionStart(String),
-    DelimiterChange(String, String)
+    DelimiterChange(String, String),
 }
 
 pub fn render(template: &str, data: &str, partials: Option<&str>) -> Result<String, VMError> {
-    let ctx = ParseContext {
+    let mut ctx = ParseContext {
         left_delimiter: DEFAULT_LEFT_DELIMITER.to_string(),
         right_delimiter: DEFAULT_RIGHT_DELIMITER.to_string(),
         data: serde_yaml::from_str(data)?,
         partials: serde_yaml::from_str(partials.unwrap_or("null"))?,
-        context_stack: Vec::new()
+        context_stack: Vec::new(),
     };
-    render_with_context(template, &ctx)
+    render_with_context(template, &mut ctx)
 }
 
-fn render_with_context(template: &str, ctx: &ParseContext) -> Result<String, VMError> {
+fn render_with_context(template: &str, ctx: &mut ParseContext) -> Result<String, VMError> {
     let mut input = template;
     let mut output = String::new();
     let mut is_at_start_of_line = true;
@@ -65,7 +65,11 @@ fn render_with_context(template: &str, ctx: &ParseContext) -> Result<String, VME
                     Tag::Interpolation(value) => {
                         output.push_str(&value);
                     }
-                    _ => todo!()
+                    Tag::DelimiterChange(left, right) => {
+                        ctx.left_delimiter = left;
+                        ctx.right_delimiter = right;
+                    }
+                    _ => todo!(),
                 }
                 continue;
             }
@@ -80,7 +84,11 @@ fn render_with_context(template: &str, ctx: &ParseContext) -> Result<String, VME
                 Tag::Interpolation(value) => {
                     output.push_str(&value);
                 }
-                _ => todo!()
+                Tag::DelimiterChange(left, right) => {
+                    ctx.left_delimiter = left;
+                    ctx.right_delimiter = right;
+                }
+                _ => todo!(),
             }
             continue;
         }
@@ -94,7 +102,7 @@ fn render_with_context(template: &str, ctx: &ParseContext) -> Result<String, VME
                     output.push_str(before_delimiter);
                     input = remaining_input;
                 } else {
-                    let (line, input_after_line) = input.split_at(newline_i+1);
+                    let (line, input_after_line) = input.split_at(newline_i + 1);
                     output.push_str(line);
                     input = input_after_line;
                     is_at_start_of_line = true;
@@ -106,7 +114,7 @@ fn render_with_context(template: &str, ctx: &ParseContext) -> Result<String, VME
                 input = remaining_input;
             }
             (None, Some(newline_i)) => {
-                let (line, input_after_line) = input.split_at(newline_i+1);
+                let (line, input_after_line) = input.split_at(newline_i + 1);
                 output.push_str(line);
                 input = input_after_line;
                 is_at_start_of_line = true;
@@ -157,40 +165,43 @@ fn parse_tag<'a>(input: &'a str, ctx: &ParseContext) -> Result<(&'a str, Tag), V
             Some((tag_contents, remaining_input)) => {
                 let value = lookup_value(tag_contents.trim(), &ctx.partials);
                 let value_as_string = value_to_string(value);
-                let child_ctx = ParseContext {
+                let mut child_ctx = ParseContext {
                     left_delimiter: DEFAULT_LEFT_DELIMITER.to_string(),
                     right_delimiter: DEFAULT_RIGHT_DELIMITER.to_string(),
                     data: ctx.data.clone(),
                     partials: ctx.partials.clone(),
                     context_stack: ctx.context_stack.clone(),
                 };
-                let output = render_with_context(&value_as_string, &child_ctx)?;
+                let output = render_with_context(&value_as_string, &mut child_ctx)?;
                 Ok((remaining_input, Tag::Interpolation(output)))
-            },
+            }
             None => Err(VMError::MissingDelimiter),
         };
     }
     if input.starts_with('#') {
         return match input[1..].split_once(&ctx.right_delimiter) {
-            Some((tag_contents, remaining_input)) => {
-                Ok((remaining_input, Tag::SectionStart(tag_contents.trim().to_string())))
-            },
+            Some((tag_contents, remaining_input)) => Ok((
+                remaining_input,
+                Tag::SectionStart(tag_contents.trim().to_string()),
+            )),
             None => Err(VMError::MissingDelimiter),
         };
     }
     if input.starts_with('^') {
         return match input[1..].split_once(&ctx.right_delimiter) {
-            Some((tag_contents, remaining_input)) => {
-                Ok((remaining_input, Tag::InvertedSectionStart(tag_contents.trim().to_string())))
-            },
+            Some((tag_contents, remaining_input)) => Ok((
+                remaining_input,
+                Tag::InvertedSectionStart(tag_contents.trim().to_string()),
+            )),
             None => Err(VMError::MissingDelimiter),
         };
     }
     if input.starts_with('/') {
         return match input[1..].split_once(&ctx.right_delimiter) {
-            Some((tag_contents, remaining_input)) => {
-                Ok((remaining_input, Tag::SectionEnd(tag_contents.trim().to_string())))
-            },
+            Some((tag_contents, remaining_input)) => Ok((
+                remaining_input,
+                Tag::SectionEnd(tag_contents.trim().to_string()),
+            )),
             None => Err(VMError::MissingDelimiter),
         };
     }
@@ -199,8 +210,11 @@ fn parse_tag<'a>(input: &'a str, ctx: &ParseContext) -> Result<(&'a str, Tag), V
         return match input[1..].split_once(&right_delimiter) {
             Some((tag_contents, remaining_input)) => {
                 let (left, right) = tag_contents.trim().split_once(' ').ok_or(VMError::BadTag)?;
-                Ok((remaining_input, Tag::DelimiterChange(left.trim().to_string(), right.trim().to_string())))
-            },
+                Ok((
+                    remaining_input,
+                    Tag::DelimiterChange(left.trim().to_string(), right.trim().to_string()),
+                ))
+            }
             None => Err(VMError::MissingDelimiter),
         };
     }
@@ -225,7 +239,7 @@ fn parse_tag<'a>(input: &'a str, ctx: &ParseContext) -> Result<(&'a str, Tag), V
                 unescaped
             };
             Ok((remaining_input, Tag::Interpolation(output)))
-        },
+        }
         None => Err(VMError::MissingDelimiter),
     }
 }
@@ -241,8 +255,8 @@ fn lookup_value<'a>(path: &str, root: &'a Value) -> &'a Value {
 
 fn value_to_string(value: &Value) -> String {
     match value {
-        Value::Number(n) => {n.to_string()}
-        Value::String(s) => {s.to_owned()}
-        _ => "".to_string()
+        Value::Number(n) => n.to_string(),
+        Value::String(s) => s.to_owned(),
+        _ => "".to_string(),
     }
 }
