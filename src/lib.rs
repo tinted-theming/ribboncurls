@@ -21,7 +21,7 @@ struct ParseContext {
     skipping: bool,
     partials: Value,
     context_stack: Vec<Value>,
-    close_tag_stack: Vec<String>
+    close_tag_stack: Vec<String>,
 }
 const DEFAULT_LEFT_DELIMITER: &str = "{{";
 const DEFAULT_RIGHT_DELIMITER: &str = "}}";
@@ -43,13 +43,16 @@ pub fn render(template: &str, data: &str, partials: Option<&str>) -> Result<Stri
         skipping: false,
         partials: serde_yaml::from_str(partials.unwrap_or("null"))?,
         context_stack: vec![serde_yaml::from_str(data)?],
-        close_tag_stack: vec![]
+        close_tag_stack: vec![],
     };
     let (_, output) = render_with_context(template, &mut ctx)?;
     Ok(output)
 }
 
-fn render_with_context<'a>(template: &'a str, ctx: &mut ParseContext) -> Result<(&'a str, String), VMError> {
+fn render_with_context<'a>(
+    template: &'a str,
+    ctx: &mut ParseContext,
+) -> Result<(&'a str, String), VMError> {
     let mut input = template;
     let mut output = String::new();
     let mut is_at_start_of_line = true;
@@ -76,7 +79,8 @@ fn render_with_context<'a>(template: &'a str, ctx: &mut ParseContext) -> Result<
                         ctx.right_delimiter = right;
                     }
                     Tag::SectionStart(tag_name) => {
-                        let end_tag = format!("{}/{}{}", ctx.left_delimiter, tag_name, ctx.right_delimiter);
+                        let end_tag =
+                            format!("{}/{}{}", ctx.left_delimiter, tag_name, ctx.right_delimiter);
                         let value = lookup_value(tag_name.trim(), &ctx.context_stack);
                         let sequence = value_as_sequence(value);
                         ctx.close_tag_stack.push(end_tag);
@@ -84,13 +88,15 @@ fn render_with_context<'a>(template: &'a str, ctx: &mut ParseContext) -> Result<
                         if sequence.is_empty() {
                             let old_skipping = ctx.skipping;
                             ctx.skipping = true;
-                            let (remaining_input, _) = render_with_context(input_at_section_start, ctx)?;
+                            let (remaining_input, _) =
+                                render_with_context(input_at_section_start, ctx)?;
                             input = remaining_input;
                             ctx.skipping = old_skipping;
                         }
                         for val in sequence {
                             ctx.context_stack.push(val);
-                            let (remaining_input, section_output) = render_with_context(input_at_section_start, ctx)?;
+                            let (remaining_input, section_output) =
+                                render_with_context(input_at_section_start, ctx)?;
                             input = remaining_input;
                             output.push_str(&section_output);
                             ctx.context_stack.pop();
@@ -98,30 +104,28 @@ fn render_with_context<'a>(template: &'a str, ctx: &mut ParseContext) -> Result<
                         ctx.close_tag_stack.pop();
                     }
                     Tag::InvertedSectionStart(tag_name) => {
-                        let end_tag = format!("{}/{}{}", ctx.left_delimiter, tag_name, ctx.right_delimiter);
+                        let end_tag =
+                            format!("{}/{}{}", ctx.left_delimiter, tag_name, ctx.right_delimiter);
                         let value = lookup_value(tag_name.trim(), &ctx.context_stack);
-                        let sequence = dbg!(value_as_sequence(value));
+                        let sequence = value_as_sequence(value);
                         ctx.close_tag_stack.push(end_tag);
                         let input_at_section_start = input;
                         if sequence.is_empty() {
-                            // ctx.context_stack.push(val);
-                            let (remaining_input, section_output) = render_with_context(input_at_section_start, ctx)?;
+                            let (remaining_input, section_output) =
+                                render_with_context(input_at_section_start, ctx)?;
                             input = remaining_input;
                             output.push_str(&section_output);
-                            // ctx.context_stack.pop();
                         } else {
                             let old_skipping = ctx.skipping;
                             ctx.skipping = true;
-                            let (remaining_input, _) = render_with_context(input_at_section_start, ctx)?;
+                            let (remaining_input, _) =
+                                render_with_context(input_at_section_start, ctx)?;
                             input = remaining_input;
                             ctx.skipping = old_skipping;
                         }
                         ctx.close_tag_stack.pop();
                     }
-                    Tag::SectionEnd(tag_name) => {
-                        return Ok((remaining_input, output))
-                    }
-                    _ => todo!("Impl eval of {:?}", tag),
+                    Tag::SectionEnd(_tag_name) => return Ok((remaining_input, output)),
                 }
                 continue;
             }
@@ -141,7 +145,8 @@ fn render_with_context<'a>(template: &'a str, ctx: &mut ParseContext) -> Result<
                     ctx.right_delimiter = right;
                 }
                 Tag::SectionStart(tag_name) => {
-                    let end_tag = format!("{}/{}{}", ctx.left_delimiter, tag_name, ctx.right_delimiter);
+                    let end_tag =
+                        format!("{}/{}{}", ctx.left_delimiter, tag_name, ctx.right_delimiter);
                     let value = lookup_value(tag_name.trim(), &ctx.context_stack);
                     let sequence = value_as_sequence(value);
                     ctx.close_tag_stack.push(end_tag);
@@ -149,13 +154,15 @@ fn render_with_context<'a>(template: &'a str, ctx: &mut ParseContext) -> Result<
                     if sequence.is_empty() {
                         let old_skipping = ctx.skipping;
                         ctx.skipping = true;
-                        let (remaining_input, _) = render_with_context(input_at_section_start, ctx)?;
+                        let (remaining_input, _) =
+                            render_with_context(input_at_section_start, ctx)?;
                         input = remaining_input;
                         ctx.skipping = old_skipping;
                     }
                     for val in sequence {
                         ctx.context_stack.push(val);
-                        let (remaining_input, section_output) = render_with_context(input_at_section_start, ctx)?;
+                        let (remaining_input, section_output) =
+                            render_with_context(input_at_section_start, ctx)?;
                         input = remaining_input;
                         output.push_str(&section_output);
                         ctx.context_stack.pop();
@@ -163,30 +170,28 @@ fn render_with_context<'a>(template: &'a str, ctx: &mut ParseContext) -> Result<
                     ctx.close_tag_stack.pop();
                 }
                 Tag::InvertedSectionStart(tag_name) => {
-                    let end_tag = format!("{}/{}{}", ctx.left_delimiter, tag_name, ctx.right_delimiter);
+                    let end_tag =
+                        format!("{}/{}{}", ctx.left_delimiter, tag_name, ctx.right_delimiter);
                     let value = lookup_value(tag_name.trim(), &ctx.context_stack);
-                    let sequence = dbg!(value_as_sequence(value));
+                    let sequence = value_as_sequence(value);
                     ctx.close_tag_stack.push(end_tag);
                     let input_at_section_start = input;
                     if sequence.is_empty() {
-                        // ctx.context_stack.push(val);
-                        let (remaining_input, section_output) = render_with_context(input_at_section_start, ctx)?;
+                        let (remaining_input, section_output) =
+                            render_with_context(input_at_section_start, ctx)?;
                         input = remaining_input;
                         output.push_str(&section_output);
-                        // ctx.context_stack.pop();
                     } else {
                         let old_skipping = ctx.skipping;
                         ctx.skipping = true;
-                        let (remaining_input, _) = render_with_context(input_at_section_start, ctx)?;
+                        let (remaining_input, _) =
+                            render_with_context(input_at_section_start, ctx)?;
                         input = remaining_input;
                         ctx.skipping = old_skipping;
                     }
                     ctx.close_tag_stack.pop();
                 }
-                Tag::SectionEnd(tag_name) => {
-                    return Ok((remaining_input, output))
-                }
-                _ => todo!("Impl eval of {:?}", tag),
+                Tag::SectionEnd(_tag_name) => return Ok((remaining_input, output)),
             }
             continue;
         }
@@ -236,7 +241,8 @@ fn parse_standalone_tag_line<'a>(
 ) -> Result<(&'a str, Tag), VMError> {
     let input_without_indent = skip_whitespace(input);
     if input_without_indent.starts_with(&ctx.left_delimiter) {
-        let (remaining_input, tag) = parse_tag(&input_without_indent[2..], &ctx)?;
+        let (remaining_input, tag) =
+            parse_tag(&input_without_indent[ctx.left_delimiter.len()..], &ctx)?;
         return if remaining_input.is_empty() {
             Ok((remaining_input, tag))
         } else if remaining_input.starts_with("\r\n") {
@@ -261,7 +267,10 @@ fn parse_tag<'a>(input: &'a str, ctx: &ParseContext) -> Result<(&'a str, Tag), V
     if input.starts_with('>') {
         return match input[1..].split_once(&ctx.right_delimiter) {
             Some((tag_contents, remaining_input)) => {
-                let value = &ctx.partials.get(tag_contents.trim()).unwrap_or(&Value::Null);
+                let value = &ctx
+                    .partials
+                    .get(tag_contents.trim())
+                    .unwrap_or(&Value::Null);
                 let value_as_string = value_to_string(value);
                 let mut child_ctx = ParseContext {
                     left_delimiter: DEFAULT_LEFT_DELIMITER.to_string(),
@@ -277,17 +286,15 @@ fn parse_tag<'a>(input: &'a str, ctx: &ParseContext) -> Result<(&'a str, Tag), V
                     let (_, output) = render_with_context(&value_as_string, &mut child_ctx)?;
                     Ok((remaining_input, Tag::Interpolation(output)))
                 }
-
             }
             None => Err(VMError::MissingDelimiter),
         };
     }
     if input.starts_with('#') {
         return match input[1..].split_once(&ctx.right_delimiter) {
-            Some((tag_contents, remaining_input)) => Ok((
-                remaining_input,
-                Tag::SectionStart(tag_contents.to_string()),
-            )),
+            Some((tag_contents, remaining_input)) => {
+                Ok((remaining_input, Tag::SectionStart(tag_contents.to_string())))
+            }
             None => Err(VMError::MissingDelimiter),
         };
     }
@@ -302,10 +309,9 @@ fn parse_tag<'a>(input: &'a str, ctx: &ParseContext) -> Result<(&'a str, Tag), V
     }
     if input.starts_with('/') {
         return match input[1..].split_once(&ctx.right_delimiter) {
-            Some((tag_contents, remaining_input)) => Ok((
-                remaining_input,
-                Tag::SectionEnd(tag_contents.to_string()),
-            )),
+            Some((tag_contents, remaining_input)) => {
+                Ok((remaining_input, Tag::SectionEnd(tag_contents.to_string())))
+            }
             None => Err(VMError::MissingDelimiter),
         };
     }
@@ -350,7 +356,7 @@ fn parse_tag<'a>(input: &'a str, ctx: &ParseContext) -> Result<(&'a str, Tag), V
 
 fn lookup_value<'a>(path: &str, context_stack: &'a Vec<Value>) -> &'a Value {
     if path == "." {
-        return &context_stack[0];
+        return &context_stack[&context_stack.len() - 1];
     }
 
     // Description from spec:
@@ -371,7 +377,7 @@ fn lookup_value<'a>(path: &str, context_stack: &'a Vec<Value>) -> &'a Value {
     let first_and_rest = path.split_once('.');
     let (first, rest_path) = match first_and_rest {
         None => (path, None),
-        Some((f, r)) => (f, Some(r))
+        Some((f, r)) => (f, Some(r)),
     };
     for value in context_stack.iter().rev() {
         if let Some(res) = value.get(first) {
@@ -384,7 +390,7 @@ fn lookup_value<'a>(path: &str, context_stack: &'a Vec<Value>) -> &'a Value {
                     current
                 }
                 None => res,
-            }
+            };
         }
     }
 
@@ -403,11 +409,17 @@ fn value_to_string(value: &Value) -> String {
 fn value_as_sequence(value: &Value) -> Vec<Value> {
     match value {
         Value::Null => vec![],
-        Value::Bool(b) => if *b { vec![value.clone()] } else { vec![] }
+        Value::Bool(b) => {
+            if *b {
+                vec![value.clone()]
+            } else {
+                vec![]
+            }
+        }
         Value::Number(_) => vec![value.clone()],
         Value::String(_) => vec![value.clone()],
         Value::Sequence(s) => s.clone(),
         Value::Mapping(_) => vec![value.clone()],
-        Value::Tagged(_) => vec![value.clone()]
+        Value::Tagged(_) => vec![value.clone()],
     }
 }
