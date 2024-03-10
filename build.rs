@@ -30,22 +30,27 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         let path = entry.path();
 
+        let mod_name = filename.replace(".yml", "").replace("~", "").to_string();
+        write!(output_file, "mod {mod_name} {{\n")?;
+
         let spec_file: SpecFile = serde_yaml::from_reader(std::fs::File::open(path)?)?;
         for test in spec_file.tests {
-            let mut name = filename.replace(".yml", "").replace("~", "").to_string();
-            name.push('_');
-            name.push_str(
-                &test
-                    .name
-                    .to_lowercase()
-                    .replace(&[' ', '(', ')', '-'], "_")
-                    .replace("___", "_")
-                    .replace("__", "_"),
-            );
+            let mut name = test
+                .name
+                .to_lowercase()
+                .replace(&[' ', '(', ')', '-'], "_")
+                .replace("___", "_")
+                .replace("__", "_");
             if name.ends_with("_") {
                 name.pop();
             }
 
+            let desc = test
+                .desc
+                .lines()
+                .map(|s| format!("\n            /// {s}"))
+                .collect::<Vec<_>>()
+                .join("");
             let template = test.template;
             let data = serde_yaml::to_string(&test.data)?;
             let partials = match test.partials {
@@ -56,19 +61,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             write!(
                 output_file,
                 r##"
-                #[test]
-                fn {name}() -> Result<(), Box<dyn std::error::Error>> {{
-                    let template = r#"{template}"#;
-                    let data = r#"{data}"#;
-                    let partials = {partials};
-                    let expected = r#"{expected}"#;
-                    let output = vstrs_mustache::render(template, data, partials)?;
-                    assert_eq!(output, expected);
-                    Ok(())
-                }}
-            "##
+
+            #[test]{desc}
+            fn {name}() -> Result<(), Box<dyn std::error::Error>> {{
+                let template = r#"{template}"#;
+                let data = r#"{data}"#;
+                let partials = {partials};
+                let expected = r#"{expected}"#;
+                let output = vstrs_mustache::render(template, data, partials)?;
+                assert_eq!(output, expected);
+                Ok(())
+            }}"##
             )?;
         }
+
+        write!(output_file, "}}\n")?;
     }
 
     Ok(())
