@@ -19,6 +19,7 @@ struct ParseContext {
     left_delimiter: String,
     right_delimiter: String,
     skipping: bool,
+    is_at_start_of_line: bool,
     partials: Value,
     context_stack: Vec<Value>,
     close_tag_stack: Vec<String>,
@@ -42,6 +43,7 @@ pub fn render(template: &str, data: &str, partials: Option<&str>) -> Result<Stri
         left_delimiter: DEFAULT_LEFT_DELIMITER.to_string(),
         right_delimiter: DEFAULT_RIGHT_DELIMITER.to_string(),
         skipping: false,
+        is_at_start_of_line: true,
         partials: serde_yaml::from_str(partials.unwrap_or("null"))?,
         context_stack: vec![serde_yaml::from_str(data)?],
         close_tag_stack: vec![],
@@ -56,7 +58,6 @@ fn render_with_context<'a>(
 ) -> Result<(&'a str, String), VMError> {
     let mut input = template;
     let mut output = String::new();
-    let mut is_at_start_of_line = true;
     let mut i = 0;
     loop {
         i += 1;
@@ -67,7 +68,7 @@ fn render_with_context<'a>(
             break;
         }
 
-        if is_at_start_of_line {
+        if ctx.is_at_start_of_line {
             let indent = leading_indent(input);
             if let Ok((remaining_input, tag)) = parse_standalone_tag_line(input, &ctx) {
                 input = remaining_input;
@@ -144,7 +145,7 @@ fn render_with_context<'a>(
                 continue;
             }
         }
-        is_at_start_of_line = false;
+        ctx.is_at_start_of_line = false;
 
         if let Some(after_delimiter) = input.strip_prefix(&ctx.left_delimiter) {
             let (remaining_input, tag) = parse_tag(after_delimiter, &ctx)?;
@@ -225,7 +226,7 @@ fn render_with_context<'a>(
                     let (line, input_after_line) = input.split_at(newline_i + 1);
                     output.push_str(line);
                     input = input_after_line;
-                    is_at_start_of_line = true;
+                    ctx.is_at_start_of_line = true;
                 }
             }
             (Some(delimiter_i), None) => {
@@ -237,7 +238,7 @@ fn render_with_context<'a>(
                 let (line, input_after_line) = input.split_at(newline_i + 1);
                 output.push_str(line);
                 input = input_after_line;
-                is_at_start_of_line = true;
+                ctx.is_at_start_of_line = true;
             }
             (None, None) => {
                 output.push_str(input);
@@ -296,6 +297,7 @@ fn parse_tag<'a>(input: &'a str, ctx: &ParseContext) -> Result<(&'a str, Tag), V
                     left_delimiter: DEFAULT_LEFT_DELIMITER.to_string(),
                     right_delimiter: DEFAULT_RIGHT_DELIMITER.to_string(),
                     partials: ctx.partials.clone(),
+                    is_at_start_of_line: ctx.is_at_start_of_line,
                     skipping: ctx.skipping,
                     context_stack: ctx.context_stack.clone(),
                     close_tag_stack: ctx.close_tag_stack.clone(),
