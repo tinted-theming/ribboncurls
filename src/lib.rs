@@ -78,10 +78,7 @@ fn render_with_context<'a>(
                         output.push_str(&value);
                     }
                     Tag::Partial(value) => {
-                        let value = &ctx
-                            .partials
-                            .get(value.trim())
-                            .unwrap_or(&Value::Null);
+                        let value = &ctx.partials.get(value.trim()).unwrap_or(&Value::Null);
                         let value_as_string = value_to_string(value);
                         let indented = if !indent.is_empty() {
                             let mut indented = String::new();
@@ -106,7 +103,8 @@ fn render_with_context<'a>(
                             close_tag_stack: ctx.close_tag_stack.clone(),
                         };
                         if !ctx.skipping {
-                            let (_, partial_output) = render_with_context(&indented, &mut child_ctx)?;
+                            let (_, partial_output) =
+                                render_with_context(&indented, &mut child_ctx)?;
                             output.push_str(&partial_output);
                         }
                     }
@@ -178,10 +176,7 @@ fn render_with_context<'a>(
                     output.push_str(&value);
                 }
                 Tag::Partial(value) => {
-                    let value = &ctx
-                        .partials
-                        .get(value.trim())
-                        .unwrap_or(&Value::Null);
+                    let value = &ctx.partials.get(value.trim()).unwrap_or(&Value::Null);
                     let value_as_string = value_to_string(value);
                     let indented = if !indent.is_empty() {
                         let mut indented = String::new();
@@ -331,41 +326,19 @@ fn parse_standalone_tag_line<'a>(
 
 fn parse_tag<'a>(input: &'a str, ctx: &ParseContext) -> Result<(&'a str, Tag), VMError> {
     if input.starts_with('!') {
-        return match input[1..].split_once(&ctx.right_delimiter) {
-            Some((_tag_contents, remaining_input)) => Ok((remaining_input, Tag::Comment)),
-            None => Err(VMError::MissingDelimiter),
-        };
+        return parse_tag_content(input, &ctx, |_| Tag::Comment);
     }
     if input.starts_with('>') {
-        return match input[1..].split_once(&ctx.right_delimiter) {
-            Some((tag_contents, remaining_input)) => Ok((remaining_input, Tag::Partial(tag_contents.to_string()))),
-            None => Err(VMError::MissingDelimiter),
-        };
+        return parse_tag_content(input, &ctx, |s| Tag::Partial(s.to_string()));
     }
     if input.starts_with('#') {
-        return match input[1..].split_once(&ctx.right_delimiter) {
-            Some((tag_contents, remaining_input)) => {
-                Ok((remaining_input, Tag::SectionStart(tag_contents.to_string())))
-            }
-            None => Err(VMError::MissingDelimiter),
-        };
+        return parse_tag_content(input, &ctx, |s| Tag::SectionStart(s.to_string()));
     }
     if input.starts_with('^') {
-        return match input[1..].split_once(&ctx.right_delimiter) {
-            Some((tag_contents, remaining_input)) => Ok((
-                remaining_input,
-                Tag::InvertedSectionStart(tag_contents.to_string()),
-            )),
-            None => Err(VMError::MissingDelimiter),
-        };
+        return parse_tag_content(input, &ctx, |s| Tag::InvertedSectionStart(s.to_string()));
     }
     if input.starts_with('/') {
-        return match input[1..].split_once(&ctx.right_delimiter) {
-            Some((tag_contents, remaining_input)) => {
-                Ok((remaining_input, Tag::SectionEnd(tag_contents.to_string())))
-            }
-            None => Err(VMError::MissingDelimiter),
-        };
+        return parse_tag_content(input, &ctx, |s| Tag::SectionEnd(s.to_string()));
     }
     if input.starts_with('=') {
         let right_delimiter = format!("={}", ctx.right_delimiter);
@@ -380,6 +353,7 @@ fn parse_tag<'a>(input: &'a str, ctx: &ParseContext) -> Result<(&'a str, Tag), V
             None => Err(VMError::MissingDelimiter),
         };
     }
+
     let mut escape = true;
     let mut right_delimiter = ctx.right_delimiter.clone();
     let mut input = input;
@@ -402,6 +376,17 @@ fn parse_tag<'a>(input: &'a str, ctx: &ParseContext) -> Result<(&'a str, Tag), V
             };
             Ok((remaining_input, Tag::Interpolation(output)))
         }
+        None => Err(VMError::MissingDelimiter),
+    }
+}
+
+fn parse_tag_content<'a, F: Fn(&str) -> Tag>(
+    input: &'a str,
+    ctx: &ParseContext,
+    handler: F,
+) -> Result<(&'a str, Tag), VMError> {
+    match input[1..].split_once(&ctx.right_delimiter) {
+        Some((tag_contents, remaining_input)) => Ok((remaining_input, handler(tag_contents))),
         None => Err(VMError::MissingDelimiter),
     }
 }
