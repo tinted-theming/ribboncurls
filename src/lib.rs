@@ -78,15 +78,36 @@ fn render_with_context<'a>(
                         output.push_str(&value);
                     }
                     Tag::Partial(value) => {
-                        if !indent.is_empty() {
-                            for line in value.lines() {
-                                output.push_str(indent);
-                                output.push_str(line);
-                                output.push('\n');
+                        let value = &ctx
+                            .partials
+                            .get(value.trim())
+                            .unwrap_or(&Value::Null);
+                        let value_as_string = value_to_string(value);
+                        let indented = if !indent.is_empty() {
+                            let mut indented = String::new();
+                            for line in value_as_string.lines() {
+                                dbg!(line);
+                                indented.push_str(indent);
+                                indented.push_str(line);
+                                indented.push('\n');
                             }
-                            output.pop(); // pop the last newline
+                            indented.pop(); // pop the last newline
+                            indented
                         } else {
-                            output.push_str(&value);
+                            value_as_string
+                        };
+                        let mut child_ctx = ParseContext {
+                            left_delimiter: DEFAULT_LEFT_DELIMITER.to_string(),
+                            right_delimiter: DEFAULT_RIGHT_DELIMITER.to_string(),
+                            partials: ctx.partials.clone(),
+                            is_at_start_of_line: ctx.is_at_start_of_line,
+                            skipping: ctx.skipping,
+                            context_stack: ctx.context_stack.clone(),
+                            close_tag_stack: ctx.close_tag_stack.clone(),
+                        };
+                        if !ctx.skipping {
+                            let (_, partial_output) = render_with_context(&indented, &mut child_ctx)?;
+                            output.push_str(&partial_output);
                         }
                     }
                     Tag::DelimiterChange(left, right) => {
@@ -140,7 +161,7 @@ fn render_with_context<'a>(
                         }
                         ctx.close_tag_stack.pop();
                     }
-                    Tag::SectionEnd(_tag_name) => return Ok((remaining_input, output)),
+                    Tag::SectionEnd(_tag_name) => return Ok((input, output)),
                 }
                 continue;
             }
@@ -150,13 +171,43 @@ fn render_with_context<'a>(
         if let Some(after_delimiter) = input.strip_prefix(&ctx.left_delimiter) {
             let (remaining_input, tag) = parse_tag(after_delimiter, &ctx)?;
             input = remaining_input;
+            let indent = "";
             match tag {
                 Tag::Comment => {}
                 Tag::Interpolation(value) => {
                     output.push_str(&value);
                 }
                 Tag::Partial(value) => {
-                    output.push_str(&value);
+                    let value = &ctx
+                        .partials
+                        .get(value.trim())
+                        .unwrap_or(&Value::Null);
+                    let value_as_string = value_to_string(value);
+                    let indented = if !indent.is_empty() {
+                        let mut indented = String::new();
+                        for line in value_as_string.lines() {
+                            indented.push_str(indent);
+                            indented.push_str(line);
+                            indented.push('\n');
+                        }
+                        indented.pop(); // pop the last newline
+                        indented
+                    } else {
+                        value_as_string
+                    };
+                    let mut child_ctx = ParseContext {
+                        left_delimiter: DEFAULT_LEFT_DELIMITER.to_string(),
+                        right_delimiter: DEFAULT_RIGHT_DELIMITER.to_string(),
+                        partials: ctx.partials.clone(),
+                        is_at_start_of_line: ctx.is_at_start_of_line,
+                        skipping: ctx.skipping,
+                        context_stack: ctx.context_stack.clone(),
+                        close_tag_stack: ctx.close_tag_stack.clone(),
+                    };
+                    if !ctx.skipping {
+                        let (_, partial_output) = render_with_context(&indented, &mut child_ctx)?;
+                        output.push_str(&partial_output);
+                    }
                 }
                 Tag::DelimiterChange(left, right) => {
                     ctx.left_delimiter = left;
@@ -209,7 +260,7 @@ fn render_with_context<'a>(
                     }
                     ctx.close_tag_stack.pop();
                 }
-                Tag::SectionEnd(_tag_name) => return Ok((remaining_input, output)),
+                Tag::SectionEnd(_tag_name) => return Ok((input, output)),
             }
             continue;
         }
@@ -287,28 +338,7 @@ fn parse_tag<'a>(input: &'a str, ctx: &ParseContext) -> Result<(&'a str, Tag), V
     }
     if input.starts_with('>') {
         return match input[1..].split_once(&ctx.right_delimiter) {
-            Some((tag_contents, remaining_input)) => {
-                let value = &ctx
-                    .partials
-                    .get(tag_contents.trim())
-                    .unwrap_or(&Value::Null);
-                let value_as_string = value_to_string(value);
-                let mut child_ctx = ParseContext {
-                    left_delimiter: DEFAULT_LEFT_DELIMITER.to_string(),
-                    right_delimiter: DEFAULT_RIGHT_DELIMITER.to_string(),
-                    partials: ctx.partials.clone(),
-                    is_at_start_of_line: ctx.is_at_start_of_line,
-                    skipping: ctx.skipping,
-                    context_stack: ctx.context_stack.clone(),
-                    close_tag_stack: ctx.close_tag_stack.clone(),
-                };
-                if ctx.skipping {
-                    Ok((remaining_input, Tag::Partial("".to_string())))
-                } else {
-                    let (_, output) = render_with_context(&value_as_string, &mut child_ctx)?;
-                    Ok((remaining_input, Tag::Partial(output)))
-                }
-            }
+            Some((tag_contents, remaining_input)) => Ok((remaining_input, Tag::Partial(tag_contents.to_string()))),
             None => Err(VMError::MissingDelimiter),
         };
     }
