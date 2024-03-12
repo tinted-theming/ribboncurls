@@ -1,8 +1,10 @@
+#![doc = include_str!("../README.md")]
+
 use serde_yaml::Value;
 
 #[non_exhaustive]
 #[derive(thiserror::Error, Debug)]
-pub enum VMError {
+pub enum RcError {
     #[error("missing delimiter")]
     MissingDelimiter,
     #[error("bad tag")]
@@ -38,7 +40,7 @@ enum Tag {
     DelimiterChange(String, String),
 }
 
-pub fn render(template: &str, data: &str, partials: Option<&str>) -> Result<String, VMError> {
+pub fn render(template: &str, data: &str, partials: Option<&str>) -> Result<String, RcError> {
     let mut ctx = ParseContext {
         left_delimiter: DEFAULT_LEFT_DELIMITER.to_string(),
         right_delimiter: DEFAULT_RIGHT_DELIMITER.to_string(),
@@ -55,7 +57,7 @@ pub fn render(template: &str, data: &str, partials: Option<&str>) -> Result<Stri
 fn render_with_context<'a>(
     template: &'a str,
     ctx: &mut ParseContext,
-) -> Result<(&'a str, String), VMError> {
+) -> Result<(&'a str, String), RcError> {
     let mut input = template;
     let mut output = String::new();
 
@@ -125,7 +127,7 @@ fn evaluate_tag<'a>(
     input: &'a str,
     tag: Tag,
     indent: &str,
-) -> Result<(&'a str, String), VMError> {
+) -> Result<(&'a str, String), RcError> {
     let mut input = input;
     let mut output = String::new();
     match tag {
@@ -224,25 +226,25 @@ fn skip_whitespace(input: &str) -> &str {
 fn parse_standalone_tag_line<'a>(
     input: &'a str,
     ctx: &ParseContext,
-) -> Result<(&'a str, Tag), VMError> {
+) -> Result<(&'a str, Tag), RcError> {
     let input_without_indent = skip_whitespace(input);
     if !input_without_indent.starts_with(&ctx.left_delimiter) {
-        return Err(VMError::NotMatching);
+        return Err(RcError::NotMatching);
     }
     let (remaining_input, tag) =
         parse_tag(&input_without_indent[ctx.left_delimiter.len()..], &ctx)?;
     if let Tag::Interpolation(_) = tag {
-        return Err(VMError::NotMatching);
+        return Err(RcError::NotMatching);
     }
     return match remaining_input {
         "" => Ok((remaining_input, tag)),
         _ if remaining_input.starts_with("\r\n") => Ok((&remaining_input[2..], tag)),
         _ if remaining_input.starts_with('\n') => Ok((&remaining_input[1..], tag)),
-        _ => Err(VMError::NotMatching),
+        _ => Err(RcError::NotMatching),
     };
 }
 
-fn parse_tag<'a>(input: &'a str, ctx: &ParseContext) -> Result<(&'a str, Tag), VMError> {
+fn parse_tag<'a>(input: &'a str, ctx: &ParseContext) -> Result<(&'a str, Tag), RcError> {
     if input.starts_with('!') {
         return parse_tag_content(input, &ctx, |_| Tag::Comment);
     }
@@ -262,13 +264,13 @@ fn parse_tag<'a>(input: &'a str, ctx: &ParseContext) -> Result<(&'a str, Tag), V
         let right_delimiter = format!("={}", ctx.right_delimiter);
         return match input[1..].split_once(&right_delimiter) {
             Some((tag_contents, remaining_input)) => {
-                let (left, right) = tag_contents.trim().split_once(' ').ok_or(VMError::BadTag)?;
+                let (left, right) = tag_contents.trim().split_once(' ').ok_or(RcError::BadTag)?;
                 Ok((
                     remaining_input,
                     Tag::DelimiterChange(left.trim().to_string(), right.trim().to_string()),
                 ))
             }
-            None => Err(VMError::MissingDelimiter),
+            None => Err(RcError::MissingDelimiter),
         };
     }
 
@@ -294,7 +296,7 @@ fn parse_tag<'a>(input: &'a str, ctx: &ParseContext) -> Result<(&'a str, Tag), V
             };
             Ok((remaining_input, Tag::Interpolation(output)))
         }
-        None => Err(VMError::MissingDelimiter),
+        None => Err(RcError::MissingDelimiter),
     }
 }
 
@@ -302,10 +304,10 @@ fn parse_tag_content<'a, F: Fn(&str) -> Tag>(
     input: &'a str,
     ctx: &ParseContext,
     handler: F,
-) -> Result<(&'a str, Tag), VMError> {
+) -> Result<(&'a str, Tag), RcError> {
     match input[1..].split_once(&ctx.right_delimiter) {
         Some((tag_contents, remaining_input)) => Ok((remaining_input, handler(tag_contents))),
-        None => Err(VMError::MissingDelimiter),
+        None => Err(RcError::MissingDelimiter),
     }
 }
 

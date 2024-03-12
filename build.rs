@@ -68,7 +68,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let data = r#"{data}"#;
                 let partials = {partials};
                 let expected = r#"{expected}"#;
-                let output = vstrs_mustache::render(template, data, partials)?;
+                let output = ribboncurls::render(template, data, partials)?;
                 assert_eq!(output, expected);
                 Ok(())
             }}"##
