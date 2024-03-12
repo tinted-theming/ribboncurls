@@ -58,12 +58,13 @@ fn render_with_context<'a>(
 ) -> Result<(&'a str, String), VMError> {
     let mut input = template;
     let mut output = String::new();
+
     while !input.is_empty() {
         if ctx.is_at_start_of_line {
             let indent = leading_indent(input);
             if let Ok((remaining_input, tag)) = parse_standalone_tag_line(input, &ctx) {
                 input = remaining_input;
-                if let Tag::SectionEnd(_tag_name) = &tag {
+                if let Tag::SectionEnd(_tag_name) = tag {
                     return Ok((input, output));
                 }
                 let (remaining_input, new_output) = evaluate_tag(ctx, input, tag, indent)?;
@@ -77,7 +78,7 @@ fn render_with_context<'a>(
         if let Some(after_delimiter) = input.strip_prefix(&ctx.left_delimiter) {
             let (remaining_input, tag) = parse_tag(after_delimiter, &ctx)?;
             input = remaining_input;
-            if let Tag::SectionEnd(_tag_name) = &tag {
+            if let Tag::SectionEnd(_tag_name) = tag {
                 return Ok((input, output));
             }
             let (remaining_input, new_output) = evaluate_tag(ctx, input, tag, "")?;
@@ -86,35 +87,33 @@ fn render_with_context<'a>(
             continue;
         }
 
-        let first_delimiter = input.find(&ctx.left_delimiter);
+        enum Next {
+            Tag(usize),
+            Newline(usize),
+        }
+
+        let first_tag = input.find(&ctx.left_delimiter);
         let first_newline = input.find('\n');
-        match (first_delimiter, first_newline) {
-            (Some(delimiter_i), Some(newline_i)) => {
-                if delimiter_i < newline_i {
-                    let (before_delimiter, remaining_input) = input.split_at(delimiter_i);
-                    output.push_str(before_delimiter);
-                    input = remaining_input;
-                } else {
-                    let (line, input_after_line) = input.split_at(newline_i + 1);
-                    output.push_str(line);
-                    input = input_after_line;
-                    ctx.is_at_start_of_line = true;
-                }
+        let next = match (first_tag, first_newline) {
+            (Some(tag_i), None) => Next::Tag(tag_i),
+            (Some(tag_i), Some(newline_i)) if tag_i < newline_i => Next::Tag(tag_i),
+            (_, Some(newline_i)) => Next::Newline(newline_i),
+            (None, None) => {
+                output.push_str(input);
+                break;
             }
-            (Some(delimiter_i), None) => {
-                let (before_delimiter, remaining_input) = input.split_at(delimiter_i);
-                output.push_str(before_delimiter);
+        };
+        match next {
+            Next::Tag(tag_i) => {
+                let (before_tag, remaining_input) = input.split_at(tag_i);
+                output.push_str(before_tag);
                 input = remaining_input;
             }
-            (None, Some(newline_i)) => {
+            Next::Newline(newline_i) => {
                 let (line, input_after_line) = input.split_at(newline_i + 1);
                 output.push_str(line);
                 input = input_after_line;
                 ctx.is_at_start_of_line = true;
-            }
-            (None, None) => {
-                output.push_str(input);
-                break;
             }
         }
     }
@@ -227,24 +226,20 @@ fn parse_standalone_tag_line<'a>(
     ctx: &ParseContext,
 ) -> Result<(&'a str, Tag), VMError> {
     let input_without_indent = skip_whitespace(input);
-    if input_without_indent.starts_with(&ctx.left_delimiter) {
-        let (remaining_input, tag) =
-            parse_tag(&input_without_indent[ctx.left_delimiter.len()..], &ctx)?;
-        if let Tag::Interpolation(_) = tag {
-            return Err(VMError::NotMatching);
-        }
-        return if remaining_input.is_empty() {
-            Ok((remaining_input, tag))
-        } else if remaining_input.starts_with("\r\n") {
-            Ok((&remaining_input[2..], tag))
-        } else if remaining_input.starts_with('\n') {
-            Ok((&remaining_input[1..], tag))
-        } else {
-            Err(VMError::NotMatching)
-        };
-    } else {
+    if !input_without_indent.starts_with(&ctx.left_delimiter) {
         return Err(VMError::NotMatching);
     }
+    let (remaining_input, tag) =
+        parse_tag(&input_without_indent[ctx.left_delimiter.len()..], &ctx)?;
+    if let Tag::Interpolation(_) = tag {
+        return Err(VMError::NotMatching);
+    }
+    return match remaining_input {
+        "" => Ok((remaining_input, tag)),
+        _ if remaining_input.starts_with("\r\n") => Ok((&remaining_input[2..], tag)),
+        _ if remaining_input.starts_with('\n') => Ok((&remaining_input[1..], tag)),
+        _ => Err(VMError::NotMatching),
+    };
 }
 
 fn parse_tag<'a>(input: &'a str, ctx: &ParseContext) -> Result<(&'a str, Tag), VMError> {
