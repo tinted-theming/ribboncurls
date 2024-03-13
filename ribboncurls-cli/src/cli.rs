@@ -6,8 +6,8 @@ fn build_cli() -> Command {
         .author(env!("CARGO_PKG_AUTHORS"))
         .about(env!("CARGO_PKG_DESCRIPTION"))
         .subcommand(
-            Command::new("build")
-                .about("Builds the target theme template")
+            Command::new("render")
+                .about("Renders the target theme template")
                 .arg(
                     Arg::new("mustache-file-path")
                         .help("The path to your mustache file")

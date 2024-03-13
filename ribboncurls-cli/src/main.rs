@@ -2,7 +2,7 @@ mod cli;
 mod operations;
 
 use crate::cli::get_matches;
-use crate::operations::build::build;
+use crate::operations::render::render;
 use anyhow::{Context, Result};
 use std::path::PathBuf;
 use std::process::exit;
@@ -14,7 +14,7 @@ fn main() -> Result<()> {
     let cli_matches = get_matches();
 
     match cli_matches.subcommand() {
-        Some(("build", sub_matches)) => {
+        Some(("render", sub_matches)) => {
             let is_inline = sub_matches
                 .get_one::<bool>("inline")
                 .context("Missing default value from cli input")?;
@@ -29,7 +29,7 @@ fn main() -> Result<()> {
                 .map(PathBuf::from)
                 .context("`yaml-data-file-path` is missing")?;
 
-            build(mustache_path, yaml_data_path, out_path_option, is_inline)?;
+            render(mustache_path, yaml_data_path, out_path_option, is_inline)?;
         }
         _ => {
             println!("Basic usage: {BIN_NAME} build <mustache-file-path> <yaml-data-file-path>");
