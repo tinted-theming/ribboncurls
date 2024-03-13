@@ -1,5 +1,6 @@
 [workspace]
 members = [
     "ribboncurls",
+    "ribboncurls-cli",
 ]
-default-members = ["ribboncurls"]
+default-members = ["ribboncurls-cli"]

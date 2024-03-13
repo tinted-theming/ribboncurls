@@ -1,0 +1,25 @@
+[package]
+name = "ribboncurls-cli"
+version = "0.1.0"
+edition = "2021"
+authors = ["Erik Vesteraas <erik@vestera.as>", "Jamy Golden <code@jamygolden.com>"]
+license = "MIT OR Apache-2.0"
+description = "Simple rendering of mustache templates"
+keywords = ["mustache", "template"]
+categories = ["template-engine"]
+homepage = "https://github.com/evestera/ribboncurls"
+repository = "https://github.com/evestera/ribboncurls"
+documentation = "https://docs.rs/ribboncurls-cli"
+readme = "README.md"
+
+[dependencies]
+anyhow = "1.0.81"
+clap = "4.5.2"
+
+[dependencies.ribboncurls]
+path = "../ribboncurls"
+version = "0.1.0"
+
+[[bin]]
+name = "ribboncurls-cli"
+path = "src/main.rs"
