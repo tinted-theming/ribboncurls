@@ -1,7 +1,7 @@
 use clap::{builder::styling, Arg, ArgAction, ArgMatches, Command};
 
 fn build_cli() -> Command {
-    Command::new(env!("CARGO_PKG_NAME"))
+    Command::new(env!("CARGO_BIN_NAME"))
         .version(env!("CARGO_PKG_VERSION"))
         .author(env!("CARGO_PKG_AUTHORS"))
         .about(env!("CARGO_PKG_DESCRIPTION"))
