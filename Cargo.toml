@@ -4,3 +4,4 @@ members = [
     "ribboncurls-cli",
 ]
 default-members = ["ribboncurls-cli"]
+resolver = "2"
