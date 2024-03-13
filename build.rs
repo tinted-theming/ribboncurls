@@ -19,29 +19,29 @@ pub struct Test {
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let out_dir = std::env::var("OUT_DIR")?;
     let destination = std::path::Path::new(&out_dir).join("from_specs.rs");
-    let mut output_file = std::fs::File::create(&destination)?;
+    let mut output_file = std::fs::File::create(destination)?;
 
     let spec_dir = std::fs::read_dir("./vendor/github.com/mustache/spec/specs")?;
     for entry_res in spec_dir {
         let entry = entry_res?;
         let filename = entry.file_name().into_string().unwrap();
-        if !filename.ends_with(".yml") || filename.starts_with("~") {
+        if !filename.ends_with(".yml") || filename.starts_with('~') {
             continue;
         }
         let path = entry.path();
 
-        let mod_name = filename.replace(".yml", "").replace("~", "").to_string();
-        write!(output_file, "mod {mod_name} {{\n")?;
+        let mod_name = filename.replace(".yml", "").replace('~', "").to_string();
+        writeln!(output_file, "mod {mod_name} {{")?;
 
         let spec_file: SpecFile = serde_yaml::from_reader(std::fs::File::open(path)?)?;
         for test in spec_file.tests {
             let mut name = test
                 .name
                 .to_lowercase()
-                .replace(&[' ', '(', ')', '-'], "_")
+                .replace([' ', '(', ')', '-'], "_")
                 .replace("___", "_")
                 .replace("__", "_");
-            if name.ends_with("_") {
+            if name.ends_with('_') {
                 name.pop();
             }
 
@@ -75,7 +75,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             )?;
         }
 
-        write!(output_file, "}}\n")?;
+        writeln!(output_file, "}}")?;
     }
 
     Ok(())

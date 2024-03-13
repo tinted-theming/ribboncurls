@@ -64,7 +64,7 @@ fn render_with_context<'a>(
     while !input.is_empty() {
         if ctx.is_at_start_of_line {
             let indent = leading_indent(input);
-            if let Ok((remaining_input, tag)) = parse_standalone_tag_line(input, &ctx) {
+            if let Ok((remaining_input, tag)) = parse_standalone_tag_line(input, ctx) {
                 input = remaining_input;
                 if let Tag::SectionEnd(_tag_name) = tag {
                     return Ok((input, output));
@@ -78,7 +78,7 @@ fn render_with_context<'a>(
         ctx.is_at_start_of_line = false;
 
         if let Some(after_delimiter) = input.strip_prefix(&ctx.left_delimiter) {
-            let (remaining_input, tag) = parse_tag(after_delimiter, &ctx)?;
+            let (remaining_input, tag) = parse_tag(after_delimiter, ctx)?;
             input = remaining_input;
             if let Tag::SectionEnd(_tag_name) = tag {
                 return Ok((input, output));
@@ -119,7 +119,7 @@ fn render_with_context<'a>(
             }
         }
     }
-    return Ok((input, output));
+    Ok((input, output))
 }
 
 fn evaluate_tag<'a>(
@@ -231,38 +231,38 @@ fn parse_standalone_tag_line<'a>(
     if !input_without_indent.starts_with(&ctx.left_delimiter) {
         return Err(RcError::NotMatching);
     }
-    let (remaining_input, tag) =
-        parse_tag(&input_without_indent[ctx.left_delimiter.len()..], &ctx)?;
+    let (remaining_input, tag) = parse_tag(&input_without_indent[ctx.left_delimiter.len()..], ctx)?;
     if let Tag::Interpolation(_) = tag {
         return Err(RcError::NotMatching);
     }
-    return match remaining_input {
+
+    match remaining_input {
         "" => Ok((remaining_input, tag)),
         _ if remaining_input.starts_with("\r\n") => Ok((&remaining_input[2..], tag)),
         _ if remaining_input.starts_with('\n') => Ok((&remaining_input[1..], tag)),
         _ => Err(RcError::NotMatching),
-    };
+    }
 }
 
 fn parse_tag<'a>(input: &'a str, ctx: &ParseContext) -> Result<(&'a str, Tag), RcError> {
     if input.starts_with('!') {
-        return parse_tag_content(input, &ctx, |_| Tag::Comment);
+        return parse_tag_content(input, ctx, |_| Tag::Comment);
     }
     if input.starts_with('>') {
-        return parse_tag_content(input, &ctx, |s| Tag::Partial(s.to_string()));
+        return parse_tag_content(input, ctx, |s| Tag::Partial(s.to_string()));
     }
     if input.starts_with('#') {
-        return parse_tag_content(input, &ctx, |s| Tag::SectionStart(s.to_string()));
+        return parse_tag_content(input, ctx, |s| Tag::SectionStart(s.to_string()));
     }
     if input.starts_with('^') {
-        return parse_tag_content(input, &ctx, |s| Tag::InvertedSectionStart(s.to_string()));
+        return parse_tag_content(input, ctx, |s| Tag::InvertedSectionStart(s.to_string()));
     }
     if input.starts_with('/') {
-        return parse_tag_content(input, &ctx, |s| Tag::SectionEnd(s.to_string()));
+        return parse_tag_content(input, ctx, |s| Tag::SectionEnd(s.to_string()));
     }
-    if input.starts_with('=') {
+    if let Some(stripped) = input.strip_prefix('=') {
         let right_delimiter = format!("={}", ctx.right_delimiter);
-        return match input[1..].split_once(&right_delimiter) {
+        return match stripped.split_once(&right_delimiter) {
             Some((tag_contents, remaining_input)) => {
                 let (left, right) = tag_contents.trim().split_once(' ').ok_or(RcError::BadTag)?;
                 Ok((
@@ -311,7 +311,7 @@ fn parse_tag_content<'a, F: Fn(&str) -> Tag>(
     }
 }
 
-fn lookup_value<'a>(path: &str, context_stack: &'a Vec<Value>) -> &'a Value {
+fn lookup_value<'a>(path: &str, context_stack: &'a [Value]) -> &'a Value {
     if path == "." {
         return &context_stack[&context_stack.len() - 1];
     }
