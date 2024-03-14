@@ -15,21 +15,28 @@ fn main() -> Result<()> {
 
     match cli_matches.subcommand() {
         Some(("render", sub_matches)) => {
-            let is_inline = sub_matches
-                .get_one::<bool>("inline")
-                .context("Missing default value from cli input")?;
             let out_path_option: Option<PathBuf> =
                 sub_matches.get_one::<String>("out").map(PathBuf::from);
-            let mustache_path = sub_matches
+            let mustache_input = sub_matches
                 .get_one::<String>("mustache-file-path")
-                .map(PathBuf::from)
                 .context("`mustache-file-path` is missing")?;
-            let yaml_data_path = sub_matches
-                .get_one::<String>("yaml-data-file-path")
-                .map(PathBuf::from)
-                .context("`yaml-data-file-path` is missing")?;
+            let data_files = sub_matches
+                .get_many::<String>("data-file")
+                .unwrap_or_default()
+                .map(|value| value.as_str())
+                .collect::<Vec<&str>>();
+            let cli_data = sub_matches
+                .get_many::<String>("data")
+                .unwrap_or_default()
+                .map(|value| value.as_str())
+                .collect::<Vec<&str>>();
+            let data = if !cli_data.is_empty() {
+                Some(cli_data.join("\n"))
+            } else {
+                None
+            };
 
-            render(mustache_path, yaml_data_path, out_path_option, is_inline)?;
+            render(mustache_input, data, data_files, out_path_option)?;
         }
         _ => {
             println!("Basic usage: {BIN_NAME} build <mustache-file-path> <yaml-data-file-path>");
