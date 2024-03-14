@@ -21,8 +21,10 @@ pub fn render(
     // Combine data from data_option and data_files
     let data_string = {
         let data_inline = data_option.unwrap_or_default();
-        if data_inline.is_empty() || data_vec.is_empty() {
-            return Err(anyhow!("No data has been provided or the provided data is empty"));
+        if data_inline.is_empty() && data_vec.is_empty() {
+            return Err(anyhow!(
+                "No data has been provided or the provided data is empty"
+            ));
         }
 
         let data = format!("{}\n{}", data_inline, data_vec.join("\n"));

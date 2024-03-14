@@ -10,20 +10,25 @@ fn build_cli() -> Command {
                 .about("Renders the target theme template")
                 .arg(
                     Arg::new("mustache-file-path")
-                        .help("The path to your mustache file")
+                        .help("The path to your mustache file, or read stdin with -")
+                        .index(1)
                         .required(true),
                 )
                 .arg(
-                    Arg::new("yaml-data-file-path")
-                        .help("The path to your yaml file used as variables for your mustache file")
-                        .required(true),
+                    Arg::new("data")
+                        .short('d')
+                        .help("A string of yaml data to be used when rendering")
+                        .long("data")
+                        .action(ArgAction::Append)
+                        .required(false),
                 )
                 .arg(
-                    Arg::new("inline")
-                        .short('i')
-                        .help("Prints the output to stdout")
-                        .long("inline")
-                        .action(ArgAction::SetTrue),
+                    Arg::new("data-file")
+                        .short('f')
+                        .help("Path to your yaml data file")
+                        .long("data-file")
+                        .action(ArgAction::Append)
+                        .required(false),
                 )
                 .arg(
                     Arg::new("out")
