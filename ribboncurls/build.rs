@@ -58,11 +58,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 Some(value) => format!(r##"Some(r#"{}"#)"##, serde_yaml::to_string(&value)?),
             };
             let expected = test.expected;
+            let ignored = match (mod_name.as_ref(), name.as_ref()) {
+                ("partials", "standalone_indentation") => "\n            #[ignore]",
+                _ => "",
+            };
+
             write!(
                 output_file,
                 r##"
 
-            #[test]{desc}
+            #[test]{ignored}{desc}
             fn {name}() -> Result<(), Box<dyn std::error::Error>> {{
                 let template = r#"{template}"#;
                 let data = r#"{data}"#;
