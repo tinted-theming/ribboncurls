@@ -1,4 +1,4 @@
-use std::fs::{self, File};
+use std::fs::{self, OpenOptions};
 use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
 
@@ -84,8 +84,12 @@ pub fn write_to_file(path: &Path, contents: &str) -> Result<()> {
             .with_context(|| format!("Unable to remove file: {}", path.display()))?;
     }
 
-    let mut file =
-        File::create(path).with_context(|| format!("Unable to create file: {}", path.display()))?;
+    let mut file = OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .open(path)?;
 
     file.write_all(contents.as_bytes())?;
 
