@@ -12,6 +12,7 @@ homepage = "https://github.com/evestera/ribboncurls"
 repository = "https://github.com/evestera/ribboncurls"
 documentation = "https://docs.rs/ribboncurls"
 readme = "README.md"
+rust-version = "1.64.0"
 
 [dependencies]
 html-escape = "0.2.13"

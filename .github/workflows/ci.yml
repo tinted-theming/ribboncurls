@@ -1,0 +1,29 @@
+name: CI
+
+env:
+  CARGO_TERM_COLOR: always
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+    - run: cargo build --workspace --verbose
+    - run: cargo test --workspace --verbose --color=always -- --color=always
+    - run: cargo fmt --all --check
+
+  msrv-check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - run: rustup toolchain install 1.64
+      - run: cargo +1.64 build -p ribboncurls --verbose
+      - run: cargo +1.64 test -p ribboncurls --verbose --color=always -- --color=always
