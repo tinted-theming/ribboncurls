@@ -1,25 +1,51 @@
+use anyhow::{anyhow, Context, Result};
+use std::collections::HashMap;
+use std::fmt::Write as FmtWrite;
 use std::fs::{self, OpenOptions};
 use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
-
-use anyhow::{anyhow, Context, Result};
 
 pub fn render(
     template_path_str: &str,
     data_option: Option<String>,
     data_files: Vec<&str>,
+    partials_paths: Vec<&String>,
+    partials_content_option: Option<String>,
     out_path_option: Option<PathBuf>,
 ) -> Result<()> {
-    // Create Vec<String> of file content by reading from data_files
-    let mut data_vec: Vec<String> = Vec::new();
-    for data_file in data_files {
-        let tmp_data = fs::read_to_string(data_file)
-            .context(format!("Unable to read data-file: {}", data_file))?;
-        data_vec.push(tmp_data);
-    }
+    // Combine content from --partials and --partials-file and read_from_string paths
+    let partials = {
+        let mut partials = String::new();
+
+        for partial_path_str in partials_paths {
+            let tmp_data = fs::read_to_string(partial_path_str).context(format!(
+                "Unable to read partial, does it exist? \"{}\"",
+                partial_path_str
+            ))?;
+            partials.push_str(&tmp_data);
+            partials.push('\n');
+        }
+
+        if let Some(partials_content) = partials_content_option {
+            partials.push_str(&partials_content);
+        }
+
+        load_partials(partials)?
+    };
 
     // Combine data from data_option and data_files
     let data_string = {
+        let data_vec = {
+            let mut data_vec: Vec<String> = Vec::new();
+            for data_file in data_files {
+                let tmp_data = fs::read_to_string(data_file)
+                    .context(format!("Unable to read data-file, does it exist? \"{}\"", data_file))?;
+                data_vec.push(tmp_data);
+            }
+
+            data_vec
+        };
+
         let data_inline = data_option.unwrap_or_default();
         if data_inline.is_empty() && data_vec.is_empty() {
             return Err(anyhow!(
@@ -49,7 +75,7 @@ pub fn render(
         ))
     };
 
-    let output = ribboncurls::render(&template_result?, &data_string, None)?;
+    let output = ribboncurls::render(&template_result?, &data_string, Some(&partials))?;
 
     match out_path_option {
         Some(out_path) => {
@@ -94,4 +120,29 @@ pub fn write_to_file(path: &Path, contents: &str) -> Result<()> {
     file.write_all(contents.as_bytes())?;
 
     Ok(())
+}
+
+fn load_partials(partials: String) -> Result<String> {
+    let partials: HashMap<String, PathBuf> = serde_yaml::from_str(&partials)?;
+
+    let partials_with_content_result: Result<Vec<(String, String)>> = partials
+        .iter()
+        .map(|(key, value)| {
+            fs::read_to_string(value)
+                .map_err(anyhow::Error::new)
+                .map(|content| (key.clone(), content))
+        })
+        .collect();
+
+    let partials_with_content = partials_with_content_result?;
+
+    let mut combined_content = String::new();
+    for (key, content) in partials_with_content {
+        FmtWrite::write_fmt(
+            &mut combined_content,
+            format_args!("{}: {}\n", key, content),
+        )?;
+    }
+
+    Ok(combined_content.trim_end().to_string())
 }

@@ -35,8 +35,29 @@ fn main() -> Result<()> {
             } else {
                 None
             };
+            let cli_partials_with_filepath = sub_matches
+                .get_many::<String>("partial-file")
+                .unwrap_or_default()
+                .map(|value| value.as_str())
+                .collect::<Vec<&str>>();
+            let cli_partials = sub_matches
+                .get_many::<String>("partials")
+                .unwrap_or_default()
+                .collect::<Vec<&String>>();
+            let partials_with_filepath = if !cli_partials_with_filepath.is_empty() {
+                Some(cli_partials_with_filepath.join("\n"))
+            } else {
+                None
+            };
 
-            render(mustache_input, data, data_files, out_path_option)?;
+            render(
+                mustache_input,
+                data,
+                data_files,
+                cli_partials,
+                partials_with_filepath,
+                out_path_option,
+            )?;
         }
         _ => {
             println!("Basic usage: {BIN_NAME} build <mustache-file-path> <yaml-data-file-path>");

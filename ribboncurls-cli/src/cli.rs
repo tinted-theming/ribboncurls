@@ -31,6 +31,23 @@ fn build_cli() -> Command {
                         .required(false),
                 )
                 .arg(
+                    Arg::new("partials")
+                        .short('p')
+                        .value_name("FILE")
+                        .help("A path to file that contains yaml partial data")
+                        .long("partials")
+                        .action(ArgAction::Append)
+                        .required(false),
+                )
+                .arg(
+                    Arg::new("partial-file")
+                        .short('r')
+                        .help("Yaml data containing partial property name and value of path to file to use as partial. `property_name: path/to/file.mustache")
+                        .long("partial-file")
+                        .action(ArgAction::Append)
+                        .required(false),
+                )
+                .arg(
                     Arg::new("out")
                         .short('o')
                         .help("Path to the output file")
