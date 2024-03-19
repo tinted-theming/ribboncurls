@@ -2,13 +2,13 @@
 name = "ribboncurls-cli"
 version = "0.1.0"
 edition = "2021"
-authors = ["Jamy Golden <code@jamygolden.com>", "Tinted Theming <tintedtheming@proton.me>"]
+authors = ["Tinted Theming <tintedtheming@proton.me>"]
 license = "MIT OR Apache-2.0"
 description = "Simple rendering of mustache templates"
 keywords = ["mustache", "template"]
 categories = ["template-engine"]
-homepage = "https://github.com/evestera/ribboncurls"
-repository = "https://github.com/evestera/ribboncurls"
+homepage = "https://github.com/tinted-theming/ribboncurls"
+repository = "https://github.com/tinted-theming/ribboncurls"
 documentation = "https://docs.rs/ribboncurls-cli"
 readme = "README.md"
 
