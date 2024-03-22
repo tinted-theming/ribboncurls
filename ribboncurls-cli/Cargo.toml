@@ -15,6 +15,7 @@ readme = "README.md"
 [dependencies]
 anyhow = "1.0.81"
 clap = "4.5.2"
+serde_yaml = "0.9.33"
 
 [dependencies.ribboncurls]
 path = "../ribboncurls"
