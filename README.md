@@ -13,7 +13,7 @@ Ribboncurls [Code of Conduct].
 
 ## License
 
-Ribboncurls is dual-licensed under the [Apache 2.0] and [MIT] licenses.
+Ribboncurls is dual-licensed under the [Apache-2.0] and [MIT] licenses.
 For more information about the licenses of the projects used by
 Ribboncurls, have a look at [license.html].
 
@@ -23,5 +23,5 @@ Ribboncurls, have a look at [license.html].
 [Ribboncurls CLI tool]: ribboncurls-cli/README.md
 [MIT]: LICENSE-MIT
 [Apache-2.0]: LICENSE-APACHE
-[Code of Conduct]: CODE_OF_CONDUCT
+[Code of Conduct]: CODE_OF_CONDUCT.md
 [license.html]: license.html
