@@ -1,35 +1,43 @@
-test: build
-	@echo "------------"
-	@echo "Running test"
-	@echo "------------"
-	cargo test --package ribboncurls --release
-	cargo test --package ribboncurls-cli --release
+.PHONY: test test_cli test_lib build install
 
-build:
+test: test_lib test_cli
+	@echo "----------------------"
+	@echo "Run all tests and lint"
+	@echo "----------------------"
+
+test_cli: build
+	@echo "--------------------------"
+	@echo "Running cli tests and lint"
+	@echo "--------------------------"
+	cargo fmt -p ribboncurls-cli --check || { echo "Formatting check failed"; exit 1; }
+	cargo test -p ribboncurls-cli --release
+
+test_lib: build
+	@echo "--------------------------"
+	@echo "Running lib tests and lint"
+	@echo "--------------------------"
+	cargo fmt -p ribboncurls --check || { echo "Formatting check failed"; exit 1; }
+	cargo test -p ribboncurls --release
+
+build: install
 	@echo "-------------"
 	@echo "Running build"
 	@echo "-------------"
-	cargo build --release
-	cargo deny check
+	cargo build --workspace --verbose --release
+	cargo deny check || { echo "Dependency version mismatch error"; exit 1; }
 
 install: 
 	@echo "---------------"
 	@echo "Installing deps"
 	@echo "---------------"
-	@if [ -z "$$(command -v cargo)" ]; then \
+	@if [ ! "$$(command -v cargo &>/dev/null)" ]; then \
 		echo "Installing rustup"; \
 		curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y; \
 	else \
 		echo "rustup already installed"; \
 	fi
-	@if [ ! "$$(cargo about --version &>/dev/null)" ]; then \
-		echo "Installing cargo about"; \
-		cargo install --locked cargo-about; \
-	else \
-		echo "cargo-about already installed"; \
-	fi
-	@if [ ! "$$(cargo deny --version &>/dev/null)" ]; then \
-		echo "Installing cargo deny"; \
+	@if [ ! "$$(command -v cargo-deny &>/dev/null)" ]; then \
+		echo "Installing cargo-deny"; \
 		cargo install --locked cargo-deny; \
 	else \
 		echo "cargo-deny already installed"; \
