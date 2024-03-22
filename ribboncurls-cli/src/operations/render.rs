@@ -38,8 +38,10 @@ pub fn render(
         let data_vec = {
             let mut data_vec: Vec<String> = Vec::new();
             for data_file in data_files {
-                let tmp_data = fs::read_to_string(data_file)
-                    .context(format!("Unable to read data-file, does it exist? \"{}\"", data_file))?;
+                let tmp_data = fs::read_to_string(data_file).context(format!(
+                    "Unable to read data-file, does it exist? \"{}\"",
+                    data_file
+                ))?;
                 data_vec.push(tmp_data);
             }
 
