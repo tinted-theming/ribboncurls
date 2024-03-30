@@ -124,6 +124,7 @@ pub fn write_to_file(path: &Path, contents: &str) -> Result<()> {
     Ok(())
 }
 
+/// partials: String in yaml format
 fn load_partials(partials: String) -> Result<String> {
     let partials: HashMap<String, PathBuf> = serde_yaml::from_str(&partials)?;
 

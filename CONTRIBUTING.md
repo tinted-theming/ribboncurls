@@ -4,9 +4,9 @@ First of all, thank you for considering to contribute to [Ribboncurls]!
 
 ## Code of Conduct
 
-This project and everyone participating in it is governed by the
-Ribboncurls Code of Conduct. By participating, you are expected to
-uphold this code.
+This project and everyone participating in it is governed by the Tinted
+Theming [Code of Conduct]. By participating, you are expected to uphold
+this code.
 
 ## Getting Started
 
@@ -42,5 +42,6 @@ behavior that is not occurring.
 
 Thank you for your contribution!
 
+[Code of Conduct]: https://github.com/tinted-theming/home/blob/main/CODE_OF_CONDUCT.md
 [list of known issues]: https://github.com/evestera/ribboncurls/issues
 [SemVer]: http://semver.org/
