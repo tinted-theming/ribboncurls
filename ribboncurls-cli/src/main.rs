@@ -60,7 +60,7 @@ fn main() -> Result<()> {
             )?;
         }
         _ => {
-            println!("Basic usage: {BIN_NAME} build <mustache-file-path> <yaml-data-file-path>");
+            println!("Basic usage: {BIN_NAME} render <mustache-file-path> <yaml-data-file-path>");
             println!("For more information try `{BIN_NAME} --help` or visit: {HOMEPAGE}");
             exit(1);
         }
