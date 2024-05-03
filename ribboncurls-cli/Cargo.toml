@@ -2,7 +2,7 @@
 name = "ribboncurls-cli"
 version = "0.1.0"
 edition = "2021"
-authors = ["Erik Vesteraas <erik@vestera.as>", "Jamy Golden <code@jamygolden.com>"]
+authors = ["Jamy Golden <code@jamygolden.com>", "Tinted Theming <tintedtheming@proton.me>"]
 license = "MIT OR Apache-2.0"
 description = "Simple rendering of mustache templates"
 keywords = ["mustache", "template"]

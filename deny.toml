@@ -1,0 +1,46 @@
+[graph]
+targets = [
+    { triple = "x86_64-unknown-linux-gnu" },
+    { triple = "aarch64-unknown-linux-gnu" },
+    { triple = "x86_64-unknown-linux-musl" },
+    { triple = "aarch64-apple-darwin" },
+    { triple = "x86_64-apple-darwin" },
+]
+all-features = false
+no-default-features = false
+
+[output]
+feature-depth = 1
+
+[advisories]
+version = 2
+
+[licenses]
+version = 2
+confidence-threshold = 0.93
+allow = [
+    "Apache-2.0",
+    "MIT",
+]
+exceptions = [
+    { allow = [
+        "Unicode-DFS-2016",
+    ], name = "unicode-ident" },
+]
+
+[bans]
+multiple-versions = "deny"
+wildcards = "deny"
+deny = [
+    { name = "openssl" },
+    { name = "openssl-sys" },
+    { name = "libssh2-sys" },
+
+    # No reason to use these
+    { name = "cmake" },
+    { name = "windows" },
+]
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
