@@ -32,8 +32,7 @@ Hello, {{name}}!
 {{> footer}}"#;
     let data = r#"{"name": "world"}"#;
     let result = ribboncurls::render(template, data, Some(partials)).unwrap();
-    assert_eq!(result, r#"<header> Some header partial</header>
-Hello, world!
+    assert_eq!(result, r#"<header>Some header partial</header>Hello, world!
 <footer>Footer partial content goes here</footer>"#);
 }
 ```
