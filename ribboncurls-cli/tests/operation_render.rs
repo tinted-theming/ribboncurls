@@ -4,7 +4,7 @@ use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
 
-const COMMAND_PATH: &str = "../target/debug/ribboncurls";
+const COMMAND_PATH: &str = "../target/release/ribboncurls";
 const SUBCOMMAND_PATH: &str = "render";
 
 #[test]
