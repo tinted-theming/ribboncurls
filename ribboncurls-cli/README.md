@@ -1,5 +1,11 @@
 # Ribboncurls CLI
 
+<p align="center">
+  <img
+    src="https://github.com/tinted-theming/ribboncurls/blob/main/logo.png?raw=true"
+    alt="Ribboncurls logo" height="481 width="800" />
+</p>
+
 Ribboncurls CLI is a tool for rendering [mustache] templates. 
 
 ## Table of Contents

@@ -1,5 +1,11 @@
 # Ribboncurls
 
+<p align="center">
+  <img
+    src="https://github.com/tinted-theming/ribboncurls/blob/main/logo.png?raw=true"
+    alt="Ribboncurls logo" height="481 width="800" />
+</p>
+
 Ribboncurls is a Rust library for rendering [mustache] templates.
 
 It currently passes 132 of the 133 tests in the [mustache v1.4.1 spec]

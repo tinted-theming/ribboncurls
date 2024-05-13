@@ -1,5 +1,11 @@
 # Ribboncurls
 
+<p align="center">
+  <img
+    src="https://github.com/tinted-theming/ribboncurls/blob/main/logo.png?raw=true"
+    alt="Ribboncurls logo" height="481 width="800" />
+</p>
+
 Ribboncurls is a [Mustache] template rendering engine written in [Rust].
 
 There is both a Rust [Ribboncurls library] and [Ribboncurls CLI tool], depending
