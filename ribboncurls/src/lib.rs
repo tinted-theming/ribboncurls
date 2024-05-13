@@ -11,7 +11,7 @@ pub enum RcError {
     BadTag,
     #[error("missing end tag")]
     MissingEndTag,
-    #[error("blah")]
+    #[error("not matching")]
     NotMatching,
     #[error("bad input")]
     YamlParseError(#[from] serde_yaml::Error),

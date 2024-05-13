@@ -11,6 +11,9 @@ Ribboncurls is a Rust library for rendering [mustache] templates.
 It currently passes 132 of the 133 tests in the [mustache v1.4.1 spec]
 not including any optional modules.
 
+**Note**: Ribboncurls library public API is subject to change, so use
+with caution.
+
 ## Usage
 
 ### Basic Usage

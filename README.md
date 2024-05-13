@@ -12,6 +12,9 @@ There is both a Rust [Ribboncurls library] and [Ribboncurls CLI tool], depending
 on your needs. You can read more about those specific projects in their
 respective README.md files.
 
+**Note**: Ribboncurls library public API is subject to change, so use
+with caution.
+
 ## Code of Conduct
 
 This project and everyone participating in it is governed by the
