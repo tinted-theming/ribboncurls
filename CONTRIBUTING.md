@@ -43,5 +43,5 @@ behavior that is not occurring.
 Thank you for your contribution!
 
 [Code of Conduct]: https://github.com/tinted-theming/home/blob/main/CODE_OF_CONDUCT.md
-[list of known issues]: https://github.com/evestera/ribboncurls/issues
+[list of known issues]: https://github.com/tinted-theming/ribboncurls/issues
 [SemVer]: http://semver.org/

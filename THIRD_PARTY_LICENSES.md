@@ -1064,8 +1064,8 @@ limitations under the License.
 
 #### Used by
 
-- [ribboncurls 0.1.0](https://github.com/evestera/ribboncurls)
-- [ribboncurls-cli 0.1.0](https://github.com/evestera/ribboncurls)
+- [ribboncurls 0.1.0](https://github.com/tinted-theming/ribboncurls)
+- [ribboncurls-cli 0.1.0](https://github.com/tinted-theming/ribboncurls)
 
 ```
 Apache License
