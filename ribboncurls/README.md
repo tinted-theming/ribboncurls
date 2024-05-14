@@ -46,6 +46,12 @@ Hello, {{name}}!
 }
 ```
 
+### With new lib
+
+#### Debug
+
+`cargo run -p ribboncurls`
+
 ## License
 
 Ribboncurls is dual-licensed under the Apache 2.0 and MIT licenses.
