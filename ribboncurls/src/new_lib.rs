@@ -17,10 +17,70 @@ pub enum Token {
     Comment(String),
 }
 
-pub fn render(template: &str) -> Result<Vec<Token>, Error> {
-    let output = tokenize(template);
+pub fn render(template: &str) -> Result<Vec<SyntaxItem>, Error> {
+    let tokens = tokenize(template);
+    let syntax_tree = create_syntax_tree(tokens);
 
-    Ok(output)
+    Ok(syntax_tree)
+}
+
+#[derive(Debug)]
+pub enum SyntaxItem {
+    Text(String),
+    Variable(String),
+    EscapedVariable(String),
+    Partial(String),
+    Comment(String),
+    Section {
+        name: String,
+        inverted: bool,
+        items: Vec<SyntaxItem>,
+    }
+
+}
+
+fn push_item(syntax_tree: &mut Vec<SyntaxItem>, stack: &mut [SyntaxItem], item: SyntaxItem) {
+    if let Some(SyntaxItem::Section { items, .. }) = stack.last_mut() {
+        items.push(item);
+    } else {
+        syntax_tree.push(item);
+    }
+}
+
+fn create_syntax_tree(tokens: Vec<Token>) -> Vec<SyntaxItem> {
+    let mut syntax_tree: Vec<SyntaxItem> = Vec::new();
+    let mut stack: Vec<SyntaxItem> = Vec::new();
+
+    for token in tokens {
+        match token {
+            Token::Text(content) => push_item(&mut syntax_tree, &mut stack, SyntaxItem::Text(content)),
+            Token::Variable(content) => push_item(&mut syntax_tree, &mut stack, SyntaxItem::Variable(content)),
+            Token::EscapedVariable(content) => push_item(&mut syntax_tree, &mut stack, SyntaxItem::EscapedVariable(content)),
+            Token::Partial(content) => push_item(&mut syntax_tree, &mut stack, SyntaxItem::Partial(content)),
+            Token::Comment(content) => push_item(&mut syntax_tree, &mut stack, SyntaxItem::Comment(content)),
+            Token::OpenSection(name) => {
+                stack.push(SyntaxItem::Section {
+                    name,
+                    items: Vec::new(),
+                    inverted: false,
+                });
+            },
+            Token::OpenInvertedSection(name) => {
+                stack.push(SyntaxItem::Section {
+                    name,
+                    items: Vec::new(),
+                    inverted: true,
+                });
+            },
+            Token::CloseSection(_) => {
+                if let Some(finished_section) = stack.pop() {
+                    push_item(&mut syntax_tree, &mut stack, finished_section);
+                }
+            },
+        }
+    }
+
+    syntax_tree
 }
 
 fn tokenize(template: &str) -> Vec<Token> {
