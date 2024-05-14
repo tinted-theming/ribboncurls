@@ -1,5 +1,8 @@
 #![doc = include_str!("../README.md")]
 
+mod new_lib;
+
+pub use new_lib::render as new_render;
 use serde_yaml::Value;
 
 #[non_exhaustive]
