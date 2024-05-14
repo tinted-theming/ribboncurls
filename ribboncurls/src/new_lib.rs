@@ -1,5 +1,6 @@
 #![doc = include_str!("../README.md")]
 
+use std::collections::HashMap;
 use serde_yaml::Error;
 
 const DEFAULT_LEFT_DELIMITER: &str = "{{";
@@ -13,15 +14,8 @@ pub enum Token {
     OpenSection(String),
     CloseSection(String),
     OpenInvertedSection(String),
-    Partial(String),
+    // Partial(String),
     Comment(String),
-}
-
-pub fn render(template: &str) -> Result<Vec<SyntaxItem>, Error> {
-    let tokens = tokenize(template);
-    let syntax_tree = create_syntax_tree(tokens);
-
-    Ok(syntax_tree)
 }
 
 #[derive(Debug)]
@@ -29,14 +23,61 @@ pub enum SyntaxItem {
     Text(String),
     Variable(String),
     EscapedVariable(String),
-    Partial(String),
+    // Partial(String),
     Comment(String),
     Section {
         name: String,
         inverted: bool,
         items: Vec<SyntaxItem>,
     }
+}
 
+pub fn render(template: &str, data: HashMap<String, String>) -> Result<String, Error> {
+    let tokens = tokenize(template);
+    let syntax_tree = create_syntax_tree(tokens);
+    let output = render_syntax_tree(&syntax_tree, &data);
+
+    Ok(output)
+}
+
+fn render_syntax_tree(syntax_tree: &Vec<SyntaxItem>, data: &HashMap<String, String>) -> String {
+    let mut output = String::new();
+
+    for node in syntax_tree {
+        match node {
+            SyntaxItem::Text(content) => output.push_str(content.as_str()),
+            SyntaxItem::EscapedVariable(content) => {
+                if let Some(value) = data.get(content.as_str()) {
+                    output.push_str(&html_escape::encode_text(value));
+                }
+            }
+            SyntaxItem::Variable(content) => {
+                if let Some(value) = data.get(content.as_str()) {
+                    output.push_str(value);
+                }
+            }
+            SyntaxItem::Comment(_) => {},
+            SyntaxItem::Section { name, items, inverted } => {
+                match (data.get(name), inverted) {
+                    (Some(_), false) => {
+                        let section_output = render_syntax_tree(items, data);
+
+                        output.push_str(&section_output);
+                    },
+                    (None, true) => {
+                        let section_output = render_syntax_tree(items, data);
+
+                        output.push_str(&section_output);
+                    },
+                    (Some(_), true) => {},
+                    (None, false) => { },
+
+                }
+            },
+        }
+    }
+
+    output
 }
 
 fn push_item(syntax_tree: &mut Vec<SyntaxItem>, stack: &mut [SyntaxItem], item: SyntaxItem) {
@@ -56,7 +97,7 @@ fn create_syntax_tree(tokens: Vec<Token>) -> Vec<SyntaxItem> {
             Token::Text(content) => push_item(&mut syntax_tree, &mut stack, SyntaxItem::Text(content)),
             Token::Variable(content) => push_item(&mut syntax_tree, &mut stack, SyntaxItem::Variable(content)),
             Token::EscapedVariable(content) => push_item(&mut syntax_tree, &mut stack, SyntaxItem::EscapedVariable(content)),
-            Token::Partial(content) => push_item(&mut syntax_tree, &mut stack, SyntaxItem::Partial(content)),
+            // Token::Partial(content) => push_item(&mut syntax_tree, &mut stack, SyntaxItem::Partial(content)),
             Token::Comment(content) => push_item(&mut syntax_tree, &mut stack, SyntaxItem::Comment(content)),
             Token::OpenSection(name) => {
                 stack.push(SyntaxItem::Section {
@@ -151,9 +192,8 @@ fn parse_tag(content: &str) -> Option<Token> {
         '#' => Some(Token::OpenSection(content[1..].trim().to_string())),
         '/' => Some(Token::CloseSection(content[1..].trim().to_string())),
         '^' => Some(Token::OpenInvertedSection(content[1..].trim().to_string())),
-        '>' => Some(Token::Partial(content[1..].trim().to_string())),
+        // '>' => Some(Token::Partial(content[1..].trim().to_string())),
         '!' => Some(Token::Comment(content[1..].trim().to_string())),
         _ => Some(Token::EscapedVariable(content.trim().to_string())),
     }
 }
-
