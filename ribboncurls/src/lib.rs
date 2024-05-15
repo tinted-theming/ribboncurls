@@ -2,7 +2,7 @@
 
 mod new_lib;
 
-pub use new_lib::render as new_render;
+pub use new_lib::rndr;
 use serde_yaml::Value;
 
 #[non_exhaustive]

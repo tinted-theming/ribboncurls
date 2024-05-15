@@ -32,7 +32,8 @@ pub enum SyntaxItem {
     }
 }
 
-pub fn render(template: &str, data: HashMap<String, String>) -> Result<String, Error> {
+pub fn rndr(template: &str, data: &str, partials: Option<&str>) -> Result<String, Error> {
+    let data = serde_yaml::from_str(data)?;
     let tokens = tokenize(template);
     let syntax_tree = create_syntax_tree(tokens);
     let output = render_syntax_tree(&syntax_tree, &data);
