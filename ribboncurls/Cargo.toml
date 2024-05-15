@@ -16,6 +16,7 @@ rust-version = "1.64.0"
 
 [dependencies]
 html-escape = "0.2.13"
+regex = "1.10.4"
 serde = { version = "1.0.197", features = ["derive"] }
 serde_yaml = "0.9.32"
 thiserror = "1.0.57"
