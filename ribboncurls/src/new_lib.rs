@@ -177,7 +177,10 @@ fn tokenize(template: &str) -> Vec<Token> {
                         tokens.push(Token::Text(text.to_string()));
                     }
                     i += next_tag_start;
+                // Otherwise add the remaining text
                 } else {
+                    let text = &template[i..];
+                    tokens.push(Token::Text(text.to_string()));
                     break;
                 }
             }
