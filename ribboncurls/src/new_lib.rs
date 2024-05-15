@@ -1,6 +1,6 @@
 #![doc = include_str!("../README.md")]
 
-use std::collections::HashMap;
+use regex::Regex;
 use serde_yaml::Error;
 
 const DEFAULT_LEFT_DELIMITER: &str = "{{";
@@ -24,18 +24,22 @@ pub enum SyntaxItem {
     Variable(String),
     EscapedVariable(String),
     // Partial(String),
-    Comment(String),
+    Comment {
+        text: String,
+        is_standalone: bool,
+    },
     Section {
         name: String,
         inverted: bool,
         items: Vec<SyntaxItem>,
-    }
+    },
 }
 
 pub fn rndr(template: &str, data: &str, partials: Option<&str>) -> Result<String, Error> {
     let data = serde_yaml::from_str(data)?;
     let tokens = tokenize(template);
     let syntax_tree = create_syntax_tree(tokens);
+    println!("{:?}", syntax_tree);
     let output = render_syntax_tree(&syntax_tree, &data);
 
     Ok(output)
@@ -44,7 +48,7 @@ pub fn rndr(template: &str, data: &str, partials: Option<&str>) -> Result<String
 fn render_syntax_tree(syntax_tree: &Vec<SyntaxItem>, data: &HashMap<String, String>) -> String {
     let mut output = String::new();
 
-    for node in syntax_tree {
+    for (index, node) in syntax_tree.iter().enumerate() {
         match node {
             SyntaxItem::Text(content) => output.push_str(content.as_str()),
             SyntaxItem::EscapedVariable(content) => {
@@ -57,23 +61,51 @@ fn render_syntax_tree(syntax_tree: &Vec<SyntaxItem>, data: &HashMap<String, Stri
                     output.push_str(value);
                 }
             }
-            SyntaxItem::Comment(_) => {},
-            SyntaxItem::Section { name, items, inverted } => {
-                match (data.get(name), inverted) {
-                    (Some(_), false) => {
-                        let section_output = render_syntax_tree(items, data);
+            SyntaxItem::Comment {
+                text: _,
+                is_standalone,
+            } => {
+                if index == 1 {
+                    if let Some(SyntaxItem::Text(text_content)) = syntax_tree.first() {
+                        let re = Regex::new(r"^[ \t]*\z").unwrap();
 
-                        output.push_str(&section_output);
-                    },
-                    (None, true) => {
-                        let section_output = render_syntax_tree(items, data);
+                        if re.is_match(text_content) {
+                            output = String::new();
+                        }
+                    }
+                } else if let Some(SyntaxItem::Text(_)) = syntax_tree.get(index + 1) {
+                    if *is_standalone {
+                        let re = Regex::new(r"\n[ \t]*\z").unwrap();
 
-                        output.push_str(&section_output);
-                    },
-                    (Some(_), true) => {},
-                    (None, false) => { },
+                        if re.is_match(&output) {
+                            output = re.replace_all(&output, "").to_string();
+                        }
+                    }
+                } else {
+                    let re = Regex::new(r"[ \t]*\z").unwrap();
 
+                    if re.is_match(&output) {
+                        output = re.replace_all(&output, "").to_string();
+                    }
                 }
+            }
+            SyntaxItem::Section {
+                name,
+                items,
+                inverted,
+            } => match (data.get(name), inverted) {
+                (Some(_), false) => {
+                    let section_output = render_syntax_tree(items, data);
+
+                    output.push_str(&section_output);
+                }
+                (None, true) => {
+                    let section_output = render_syntax_tree(items, data);
+
+                    output.push_str(&section_output);
+                }
+                (Some(_), true) => {}
+                (None, false) => {}
             },
         }
     }
@@ -95,30 +127,58 @@ fn create_syntax_tree(tokens: Vec<Token>) -> Vec<SyntaxItem> {
 
     for token in tokens {
         match token {
-            Token::Text(content) => push_item(&mut syntax_tree, &mut stack, SyntaxItem::Text(content)),
-            Token::Variable(content) => push_item(&mut syntax_tree, &mut stack, SyntaxItem::Variable(content)),
-            Token::EscapedVariable(content) => push_item(&mut syntax_tree, &mut stack, SyntaxItem::EscapedVariable(content)),
+            Token::Text(content) => {
+                push_item(&mut syntax_tree, &mut stack, SyntaxItem::Text(content))
+            }
+            Token::Variable(content) => {
+                push_item(&mut syntax_tree, &mut stack, SyntaxItem::Variable(content))
+            }
+            Token::EscapedVariable(content) => push_item(
+                &mut syntax_tree,
+                &mut stack,
+                SyntaxItem::EscapedVariable(content),
+            ),
             // Token::Partial(content) => push_item(&mut syntax_tree, &mut stack, SyntaxItem::Partial(content)),
-            Token::Comment(content) => push_item(&mut syntax_tree, &mut stack, SyntaxItem::Comment(content)),
+            Token::Comment(content) => {
+                if content.contains('\n') {
+                    push_item(
+                        &mut syntax_tree,
+                        &mut stack,
+                        SyntaxItem::Comment {
+                            text: content,
+                            is_standalone: false,
+                        },
+                    );
+                } else {
+                    push_item(
+                        &mut syntax_tree,
+                        &mut stack,
+                        SyntaxItem::Comment {
+                            text: content,
+                            is_standalone: true,
+                        },
+                    );
+                }
+            }
             Token::OpenSection(name) => {
                 stack.push(SyntaxItem::Section {
                     name,
                     items: Vec::new(),
                     inverted: false,
                 });
-            },
+            }
             Token::OpenInvertedSection(name) => {
                 stack.push(SyntaxItem::Section {
                     name,
                     items: Vec::new(),
                     inverted: true,
                 });
-            },
+            }
             Token::CloseSection(_) => {
                 if let Some(finished_section) = stack.pop() {
                     push_item(&mut syntax_tree, &mut stack, finished_section);
                 }
-            },
+            }
         }
     }
 
@@ -146,7 +206,7 @@ fn tokenize(template: &str) -> Vec<Token> {
                     let end = end + i; // index in `template`
                     let content = &template[i + tripple_left_delimiter.len()..end].trim();
 
-                    tokens.push(Token::Variable(content.trim().to_string()));
+                    tokens.push(Token::Variable(content.to_string()));
 
                     i = end + tripple_right_delimiter.len();
                 } else {
