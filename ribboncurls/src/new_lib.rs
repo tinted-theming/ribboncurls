@@ -1,7 +1,6 @@
 #![doc = include_str!("../README.md")]
 
 use regex::Regex;
-use serde_yaml::Error;
 
 const DEFAULT_LEFT_DELIMITER: &str = "{{";
 const DEFAULT_RIGHT_DELIMITER: &str = "}}";
@@ -16,6 +15,7 @@ pub enum Token {
     OpenInvertedSection(String),
     // Partial(String),
     Comment(String),
+    Delimiter((String, String)),
 }
 
 #[derive(Debug)]
@@ -35,26 +35,41 @@ pub enum SyntaxItem {
     },
 }
 
+#[non_exhaustive]
+#[derive(thiserror::Error, Debug)]
+pub enum RibboncurlsError {
+    #[error("missing delimiter")]
+    MissingDelimiter,
+    #[error("bad input")]
+    YamlParseError(#[from] serde_yaml::Error),
+}
+
 struct ParseContext {
     left_delimiter: String,
     right_delimiter: String,
 }
 
-pub fn rndr(template: &str, data: &str, partials: Option<&str>) -> Result<String, Error> {
+pub fn rndr(
+    template: &str,
+    data: &str,
+    partials: Option<&str>,
+) -> Result<String, RibboncurlsError> {
     let data = serde_yaml::from_str(data)?;
     let mut ctx = ParseContext {
         left_delimiter: DEFAULT_LEFT_DELIMITER.to_string(),
         right_delimiter: DEFAULT_RIGHT_DELIMITER.to_string(),
     };
-    let tokens = tokenize(template, &mut ctx);
-    let syntax_tree = create_syntax_tree(tokens);
+    let tokens = tokenize(template, &mut ctx)?;
+    let syntax_tree = create_syntax_tree(tokens)?;
     println!("{:?}", syntax_tree);
-    let output = render_syntax_tree(&syntax_tree, &data);
 
-    Ok(output)
+    render_syntax_tree(&syntax_tree, &data)
 }
 
-fn render_syntax_tree(syntax_tree: &[SyntaxItem], data: &HashMap<String, String>) -> String {
+fn render_syntax_tree(
+    syntax_tree: &[SyntaxItem],
+    data: &HashMap<String, String>,
+) -> Result<String, RibboncurlsError> {
     let mut output = String::new();
 
     for (index, node) in syntax_tree.iter().enumerate() {
@@ -106,22 +121,22 @@ fn render_syntax_tree(syntax_tree: &[SyntaxItem], data: &HashMap<String, String>
                 inverted,
             } => match (data.get(name), inverted) {
                 (Some(_), false) => {
-                    let section_output = render_syntax_tree(items, data);
+                    let section_output = render_syntax_tree(items, data)?;
 
                     output.push_str(&section_output);
                 }
                 (None, true) => {
-                    let section_output = render_syntax_tree(items, data);
+                    let section_output = render_syntax_tree(items, data)?;
 
                     output.push_str(&section_output);
                 }
                 (Some(_), true) => {}
                 (None, false) => {}
             },
-        }
+        };
     }
 
-    output
+    Ok(output)
 }
 
 fn push_item(syntax_tree: &mut Vec<SyntaxItem>, stack: &mut [SyntaxItem], item: SyntaxItem) {
@@ -132,7 +147,7 @@ fn push_item(syntax_tree: &mut Vec<SyntaxItem>, stack: &mut [SyntaxItem], item: 
     }
 }
 
-fn create_syntax_tree(tokens: Vec<Token>) -> Vec<SyntaxItem> {
+fn create_syntax_tree(tokens: Vec<Token>) -> Result<Vec<SyntaxItem>, RibboncurlsError> {
     let mut syntax_tree: Vec<SyntaxItem> = Vec::new();
     let mut stack: Vec<SyntaxItem> = Vec::new();
 
@@ -165,6 +180,7 @@ fn create_syntax_tree(tokens: Vec<Token>) -> Vec<SyntaxItem> {
                 SyntaxItem::EscapedVariable(content),
             ),
             // Token::Partial(content) => push_item(&mut syntax_tree, &mut stack, SyntaxItem::Partial(content)),
+            Token::Delimiter(_) => {}
             Token::Comment(content) => {
                 push_item(
                     &mut syntax_tree,
@@ -199,7 +215,7 @@ fn create_syntax_tree(tokens: Vec<Token>) -> Vec<SyntaxItem> {
 
     set_standalone_syntax_items_mut(&mut syntax_tree);
 
-    syntax_tree
+    Ok(syntax_tree)
 }
 
 // Find standalone SyntaxItems and set standalone properties to true
@@ -255,7 +271,7 @@ fn set_standalone_syntax_items_mut(syntax_tree: &mut [SyntaxItem]) {
     }
 }
 
-fn tokenize(template: &str, ctx: &mut ParseContext) -> Vec<Token> {
+fn tokenize(template: &str, ctx: &mut ParseContext) -> Result<Vec<Token>, RibboncurlsError> {
     let mut tokens = Vec::new();
     let mut i = 0;
     let single_char_left_delimiter = &ctx.left_delimiter[0..1];
@@ -290,7 +306,7 @@ fn tokenize(template: &str, ctx: &mut ParseContext) -> Vec<Token> {
                     let end = end + i; // index in `template`
                     let content = &template[i + ctx.left_delimiter.len()..end].trim();
 
-                    if let Some(token) = parse_tag(content, ctx) {
+                    if let Ok(token) = parse_tag(content, ctx) {
                         tokens.push(token);
                     }
 
@@ -318,29 +334,32 @@ fn tokenize(template: &str, ctx: &mut ParseContext) -> Vec<Token> {
         }
     }
 
-    tokens
+    Ok(tokens)
 }
 
-fn parse_tag(content: &str, ctx: &mut ParseContext) -> Option<Token> {
-    match content.chars().next()? {
-        '#' => Some(Token::OpenSection(content[1..].trim().to_string())),
-        '/' => Some(Token::CloseSection(content[1..].trim().to_string())),
-        '^' => Some(Token::OpenInvertedSection(content[1..].trim().to_string())),
+fn parse_tag(content: &str, ctx: &mut ParseContext) -> Result<Token, RibboncurlsError> {
+    match content.chars().next() {
+        Some('#') => Ok(Token::OpenSection(content[1..].trim().to_string())),
+        Some('/') => Ok(Token::CloseSection(content[1..].trim().to_string())),
+        Some('^') => Ok(Token::OpenInvertedSection(content[1..].trim().to_string())),
         // '>' => Some(Token::Partial(content[1..].trim().to_string())),
-        '!' => Some(Token::Comment(content[1..].trim().to_string())),
-        '=' => {
+        Some('!') => Ok(Token::Comment(content[1..].trim().to_string())),
+        Some('=') => {
             let delimiters: Vec<&str> = content[1..content.len() - 1].split(' ').collect();
 
-            if let Some(left_delimiter) = delimiters.first() {
-                ctx.left_delimiter = left_delimiter.to_string();
-            }
+            match (delimiters.first(), delimiters.last()) {
+                (Some(left_delimiter), Some(right_delimiter)) => {
+                    ctx.left_delimiter = left_delimiter.to_string();
+                    ctx.right_delimiter = right_delimiter.to_string();
 
-            if let Some(right_delimiter) = delimiters.last() {
-                ctx.right_delimiter = right_delimiter.to_string();
+                    Ok(Token::Delimiter((
+                        left_delimiter.to_string(),
+                        right_delimiter.to_string(),
+                    )))
+                }
+                _ => Err(RibboncurlsError::MissingDelimiter),
             }
-
-            None
         }
-        _ => Some(Token::EscapedVariable(content.trim().to_string())),
+        _ => Ok(Token::EscapedVariable(content.trim().to_string())),
     }
 }
