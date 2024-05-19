@@ -35,9 +35,18 @@ pub enum SyntaxItem {
     },
 }
 
+struct ParseContext {
+    left_delimiter: String,
+    right_delimiter: String,
+}
+
 pub fn rndr(template: &str, data: &str, partials: Option<&str>) -> Result<String, Error> {
     let data = serde_yaml::from_str(data)?;
-    let tokens = tokenize(template);
+    let mut ctx = ParseContext {
+        left_delimiter: DEFAULT_LEFT_DELIMITER.to_string(),
+        right_delimiter: DEFAULT_RIGHT_DELIMITER.to_string(),
+    };
+    let tokens = tokenize(template, &mut ctx);
     let syntax_tree = create_syntax_tree(tokens);
     println!("{:?}", syntax_tree);
     let output = render_syntax_tree(&syntax_tree, &data);
@@ -246,11 +255,11 @@ fn set_standalone_syntax_items_mut(syntax_tree: &mut [SyntaxItem]) {
     }
 }
 
-fn tokenize(template: &str) -> Vec<Token> {
+fn tokenize(template: &str, ctx: &mut ParseContext) -> Vec<Token> {
     let mut tokens = Vec::new();
     let mut i = 0;
-    let single_char_left_delimiter = &DEFAULT_LEFT_DELIMITER[0..1];
-    let single_char_right_delimiter = &DEFAULT_RIGHT_DELIMITER[0..1];
+    let single_char_left_delimiter = &ctx.left_delimiter[0..1];
+    let single_char_right_delimiter = &ctx.right_delimiter[0..1];
     let tripple_left_delimiter = format!(
         "{single_char_left_delimiter}{single_char_left_delimiter}{single_char_left_delimiter}"
     );
@@ -275,13 +284,13 @@ fn tokenize(template: &str) -> Vec<Token> {
                 }
             }
 
-            _ if current_str.starts_with(DEFAULT_LEFT_DELIMITER) => {
+            _ if current_str.starts_with(&ctx.left_delimiter) => {
                 // If there is a following end-delimiter
-                if let Some(end) = current_str.find(DEFAULT_RIGHT_DELIMITER) {
+                if let Some(end) = current_str.find(&ctx.right_delimiter) {
                     let end = end + i; // index in `template`
-                    let content = &template[i + DEFAULT_LEFT_DELIMITER.len()..end].trim();
+                    let content = &template[i + ctx.left_delimiter.len()..end].trim();
 
-                    if let Some(token) = parse_tag(content) {
+                    if let Some(token) = parse_tag(content, ctx) {
                         tokens.push(token);
                     }
 
@@ -293,7 +302,7 @@ fn tokenize(template: &str) -> Vec<Token> {
 
             _ => {
                 // Find the start of the next tag or end of the template
-                if let Some(next_tag_start) = current_str.find(DEFAULT_LEFT_DELIMITER) {
+                if let Some(next_tag_start) = current_str.find(&ctx.left_delimiter) {
                     let text = &template[i..i + next_tag_start];
                     if !text.is_empty() {
                         tokens.push(Token::Text(text.to_string()));
@@ -312,13 +321,26 @@ fn tokenize(template: &str) -> Vec<Token> {
     tokens
 }
 
-fn parse_tag(content: &str) -> Option<Token> {
+fn parse_tag(content: &str, ctx: &mut ParseContext) -> Option<Token> {
     match content.chars().next()? {
         '#' => Some(Token::OpenSection(content[1..].trim().to_string())),
         '/' => Some(Token::CloseSection(content[1..].trim().to_string())),
         '^' => Some(Token::OpenInvertedSection(content[1..].trim().to_string())),
         // '>' => Some(Token::Partial(content[1..].trim().to_string())),
         '!' => Some(Token::Comment(content[1..].trim().to_string())),
+        '=' => {
+            let delimiters: Vec<&str> = content[1..content.len() - 1].split(' ').collect();
+
+            if let Some(left_delimiter) = delimiters.first() {
+                ctx.left_delimiter = left_delimiter.to_string();
+            }
+
+            if let Some(right_delimiter) = delimiters.last() {
+                ctx.right_delimiter = right_delimiter.to_string();
+            }
+
+            None
+        }
         _ => Some(Token::EscapedVariable(content.trim().to_string())),
     }
 }
