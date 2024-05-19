@@ -45,12 +45,14 @@ pub fn rndr(template: &str, data: &str, partials: Option<&str>) -> Result<String
     Ok(output)
 }
 
-fn render_syntax_tree(syntax_tree: &Vec<SyntaxItem>, data: &HashMap<String, String>) -> String {
+fn render_syntax_tree(syntax_tree: &[SyntaxItem], data: &HashMap<String, String>) -> String {
     let mut output = String::new();
 
     for (index, node) in syntax_tree.iter().enumerate() {
         match node {
-            SyntaxItem::Text(content) => output.push_str(content.as_str()),
+            SyntaxItem::Text(content) => {
+                output.push_str(content.as_str());
+            }
             SyntaxItem::EscapedVariable(content) => {
                 if let Some(value) = data.get(content.as_str()) {
                     output.push_str(&html_escape::encode_text(value));
@@ -128,7 +130,22 @@ fn create_syntax_tree(tokens: Vec<Token>) -> Vec<SyntaxItem> {
     for token in tokens {
         match token {
             Token::Text(content) => {
-                push_item(&mut syntax_tree, &mut stack, SyntaxItem::Text(content))
+                let lines: Vec<&str> = content.split('\n').collect();
+                if let Some((first_line, rest_of_lines)) = lines.split_first() {
+                    // Emtpy if the first char is \n
+                    if !first_line.is_empty() {
+                        push_item(
+                            &mut syntax_tree,
+                            &mut stack,
+                            SyntaxItem::Text(first_line.to_string()),
+                        );
+                    }
+
+                    for other_line in rest_of_lines {
+                        let new_content = format!("\n{other_line}");
+                        push_item(&mut syntax_tree, &mut stack, SyntaxItem::Text(new_content))
+                    }
+                }
             }
             Token::Variable(content) => {
                 push_item(&mut syntax_tree, &mut stack, SyntaxItem::Variable(content))
@@ -140,25 +157,14 @@ fn create_syntax_tree(tokens: Vec<Token>) -> Vec<SyntaxItem> {
             ),
             // Token::Partial(content) => push_item(&mut syntax_tree, &mut stack, SyntaxItem::Partial(content)),
             Token::Comment(content) => {
-                if content.contains('\n') {
-                    push_item(
-                        &mut syntax_tree,
-                        &mut stack,
-                        SyntaxItem::Comment {
-                            text: content,
-                            is_standalone: false,
-                        },
-                    );
-                } else {
-                    push_item(
-                        &mut syntax_tree,
-                        &mut stack,
-                        SyntaxItem::Comment {
-                            text: content,
-                            is_standalone: true,
-                        },
-                    );
-                }
+                push_item(
+                    &mut syntax_tree,
+                    &mut stack,
+                    SyntaxItem::Comment {
+                        text: content,
+                        is_standalone: false,
+                    },
+                );
             }
             Token::OpenSection(name) => {
                 stack.push(SyntaxItem::Section {
@@ -182,7 +188,62 @@ fn create_syntax_tree(tokens: Vec<Token>) -> Vec<SyntaxItem> {
         }
     }
 
+    set_standalone_syntax_items_mut(&mut syntax_tree);
+
     syntax_tree
+}
+
+// Find standalone SyntaxItems and set standalone properties to true
+// A standalone item is any non-SyntaxItem::Text item that is surrounded
+// by new line chars
+fn set_standalone_syntax_items_mut(syntax_tree: &mut [SyntaxItem]) {
+    let before_re = Regex::new(r"^\n[ \t]*\z").unwrap();
+    let after_re = Regex::new(r"^\n").unwrap();
+
+    let empty_line_syntax_item_text_vec = syntax_tree
+        .iter()
+        .enumerate()
+        .filter_map(|(index, item)| {
+            if let SyntaxItem::Text(text) = item {
+                if before_re.is_match(text.as_str()) {
+                    Some(index)
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        })
+        .collect::<Vec<usize>>();
+
+    for index in empty_line_syntax_item_text_vec {
+        match syntax_tree.get_mut(index + 2) {
+            Some(syntax_item) => {
+                if let SyntaxItem::Text(text) = syntax_item {
+                    if after_re.is_match(text) {
+                        // TODO this should be a match and not just match comment syntax items
+                        if let Some(SyntaxItem::Comment {
+                            ref mut is_standalone,
+                            ..
+                        }) = syntax_tree.get_mut(index + 1)
+                        {
+                            *is_standalone = true;
+                        }
+                    }
+                }
+            }
+            None => {
+                // TODO this should be a match and not just match comment syntax items
+                if let Some(SyntaxItem::Comment {
+                    ref mut is_standalone,
+                    ..
+                }) = syntax_tree.get_mut(index + 1)
+                {
+                    *is_standalone = true;
+                }
+            }
+        }
+    }
 }
 
 fn tokenize(template: &str) -> Vec<Token> {
