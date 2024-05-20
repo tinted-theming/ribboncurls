@@ -102,16 +102,15 @@ fn render_syntax_tree(
             SyntaxItem::Text(content) => {
                 if index == 1 || index == 2 {
                     match syntax_tree.get(index - 1) {
-                        Some(SyntaxItem::Comment {
+                        Some(SyntaxItem::Delimiter { is_standalone })
+                        | Some(SyntaxItem::Comment {
                             text: _,
                             is_standalone,
                         }) => {
-                            let re = Regex::new(r"^\n").unwrap();
-
                             if *is_standalone && content.starts_with('\n') {
-                                let updated_content = re.replace_all(content, "");
-
-                                output.push_str(&updated_content);
+                                if let Some(updated_content) = content.strip_prefix('\n') {
+                                    output.push_str(updated_content);
+                                }
                             } else {
                                 output.push_str(content.as_str());
                             }
@@ -158,7 +157,11 @@ fn render_syntax_tree(
             }
             SyntaxItem::Delimiter { is_standalone } => {
                 if *is_standalone {
-                    remove_leading_line_and_space(&mut output);
+                    if syntax_tree.len() == index + 1 || index == 1 {
+                        remove_leading_space(&mut output);
+                    } else {
+                        remove_leading_line_and_space(&mut output);
+                    }
                 }
             }
             SyntaxItem::Section {
@@ -438,6 +441,7 @@ fn tokenize(template: &str, ctx: &mut ParseContext) -> Result<Vec<Token>, Ribbon
 
 fn parse_tag(content: &str, ctx: &mut ParseContext) -> Result<Token, RibboncurlsError> {
     match content.chars().next() {
+        Some('&') => Ok(Token::Variable(content[1..].trim().to_string())),
         Some('#') => Ok(Token::OpenSection(content[1..].trim().to_string())),
         Some('/') => Ok(Token::CloseSection(content[1..].trim().to_string())),
         Some('^') => Ok(Token::OpenInvertedSection(content[1..].trim().to_string())),
