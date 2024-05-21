@@ -55,7 +55,7 @@ struct ParseContext {
     right_delimiter: String,
 }
 
-pub fn rndr(
+pub fn render(
     template: &str,
     data: &str,
     partials: Option<&str>,
