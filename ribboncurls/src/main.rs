@@ -8,7 +8,7 @@ data: "I got interpolated."
     // let template = r#"
     // Hello,  {{^section}}This is a section!{{/section}}! {{{name}}} {{surname}}. {{#some-section}}This is a section!{{/some-section}}! - {{url}}"#;
     let template = r#"=\n  {{=@ @=}}"#;
-    let output = match ribboncurls::rndr(template, data, None) {
+    let output = match ribboncurls::render(template, data, None) {
         Ok(res) => res,
         Err(err) => {
             println!("error: {:?}", err);
