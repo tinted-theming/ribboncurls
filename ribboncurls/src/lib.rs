@@ -2,11 +2,14 @@
 
 mod syntax_tree;
 mod token;
+mod utils;
 
 use regex::Regex;
 use serde_yaml::Value;
 use syntax_tree::{create_syntax_tree, SyntaxItem};
 use token::tokenize;
+
+use crate::utils::escape_html;
 
 const DEFAULT_LEFT_DELIMITER: &str = "{{";
 const DEFAULT_RIGHT_DELIMITER: &str = "}}";
@@ -32,7 +35,9 @@ pub fn render(
     data: &str,
     partials: Option<&str>,
 ) -> Result<String, RibboncurlsError> {
-    let mut context_stack = vec![serde_yaml::from_str(data)?];
+    let mut context_stack =
+        vec![serde_yaml::from_str(data).unwrap_or(Value::String(data.to_string()))];
+
     let mut ctx = ParseContext {
         left_delimiter: DEFAULT_LEFT_DELIMITER.to_string(),
         right_delimiter: DEFAULT_RIGHT_DELIMITER.to_string(),
@@ -40,7 +45,7 @@ pub fn render(
     let tokens = tokenize(template, &mut ctx)?;
     let syntax_tree = create_syntax_tree(tokens)?;
 
-    render_syntax_tree(&syntax_tree, &mut context_stack)
+    render_syntax_tree(&syntax_tree, &mut context_stack, true)
 }
 
 fn remove_leading_space(output: &mut String) {
@@ -62,13 +67,14 @@ fn remove_leading_line_and_space(output: &mut String) {
 fn render_syntax_tree(
     syntax_tree: &[SyntaxItem],
     context_stack: &mut Vec<Value>,
+    is_root: bool,
 ) -> Result<String, RibboncurlsError> {
     let mut output = String::new();
 
     for (index, node) in syntax_tree.iter().enumerate() {
         match node {
             SyntaxItem::Text(content) => {
-                if index == 1 || index == 2 {
+                if is_root && (index == 1 || index == 2) {
                     match syntax_tree.get(index - 1) {
                         Some(SyntaxItem::Delimiter { is_standalone })
                         | Some(SyntaxItem::Comment {
@@ -93,9 +99,7 @@ fn render_syntax_tree(
             }
             SyntaxItem::EscapedVariable(content) => {
                 if let Some(value) = get_context_value(context_stack, content.as_str()) {
-                    output.push_str(&html_escape::encode_text(&serde_yaml_value_to_string(
-                        value,
-                    )));
+                    output.push_str(&escape_html(&serde_yaml_value_to_string(value)));
                 }
             }
             SyntaxItem::Variable(content) => {
@@ -107,7 +111,7 @@ fn render_syntax_tree(
                 text: _,
                 is_standalone,
             } => {
-                if index == 1 {
+                if index == 1 && is_root {
                     if let Some(SyntaxItem::Text(text_content)) = syntax_tree.first() {
                         let re = Regex::new(r"^[ \t]*\z").unwrap();
 
@@ -137,40 +141,33 @@ fn render_syntax_tree(
                 items,
                 inverted,
             } => {
-                remove_leading_space(&mut output);
-
                 let section_value_option = find_section_value(context_stack, name);
                 let mut is_mutating_context_stack = false;
 
-                if let Some(Value::Mapping(map)) = section_value_option {
-                    context_stack.push(Value::Mapping(map.clone()));
+                if let Some(section_value) = &section_value_option {
+                    if matches!(section_value, Value::Mapping(_)) {
+                        context_stack.push(section_value.clone());
 
-                    is_mutating_context_stack = true;
+                        is_mutating_context_stack = true;
+                    }
                 }
 
-                let section_value_option = find_section_value(context_stack, name);
-
                 match (section_value_option, inverted) {
-                    (Some(Value::Mapping(_)), false) | (Some(Value::Mapping(_)), true) => {
-                        let section_output = render_syntax_tree(items, context_stack)?;
-
-                        output.push_str(&section_output);
-                    }
                     (Some(value), false) => {
-                        if !serde_yaml_value_to_string(&value).is_empty() {
-                            let section_output = render_syntax_tree(items, context_stack)?;
+                        if is_value_truthy(&value) {
+                            let section_output = render_syntax_tree(items, context_stack, false)?;
 
                             output.push_str(&section_output);
                         };
                     }
                     (None, true) => {
-                        let section_output = render_syntax_tree(items, context_stack)?;
+                        let section_output = render_syntax_tree(items, context_stack, false)?;
 
                         output.push_str(&section_output);
                     }
                     (Some(value), true) => {
-                        if serde_yaml_value_to_string(&value).is_empty() {
-                            let section_output = render_syntax_tree(items, context_stack)?;
+                        if is_value_falsy(&value) && !matches!(value, Value::Mapping(_)) {
+                            let section_output = render_syntax_tree(items, context_stack, false)?;
 
                             output.push_str(&section_output);
                         }
@@ -205,13 +202,35 @@ fn serde_yaml_value_to_string(value: &Value) -> String {
 }
 
 fn find_section_value(context_stack: &[Value], section_name: &str) -> Option<Value> {
+    let parts = section_name.split('.').collect::<Vec<&str>>();
+    let mut current_option: Option<Value> = None;
+
     for context in context_stack.iter().rev() {
-        if let Some(name) = context.get(section_name) {
-            return Some(name.clone());
+        current_option = Some(context.clone());
+        for (index, part) in parts.clone().iter().enumerate() {
+            if let Some(current) = current_option {
+                match current.get(part) {
+                    Some(Value::Mapping(map)) => {
+                        current_option = Some(Value::Mapping(map.clone()));
+                    }
+                    Some(value) => {
+                        if index == parts.len() - 1 {
+                            current_option = Some(value.clone());
+                        } else {
+                            current_option = None;
+                        }
+                    }
+                    None => {
+                        current_option = None;
+
+                        continue;
+                    }
+                }
+            }
         }
     }
 
-    None
+    current_option
 }
 
 fn get_context_value<'a>(context_stack: &'a [Value], path: &str) -> Option<&'a Value> {
@@ -274,4 +293,19 @@ fn get_value<'a>(data: &'a Value, path: &str) -> Option<&'a Value> {
         }
         _ => None,
     }
+}
+
+fn is_value_falsy(value: &Value) -> bool {
+    match value {
+        Value::Null => true,
+        Value::Bool(b) => !*b,
+        Value::String(s) => s.is_empty(),
+        Value::Sequence(seq) => seq.is_empty(),
+        Value::Mapping(map) => map.is_empty(),
+        _ => false, // For other types, consider them as non-falsy
+    }
+}
+
+fn is_value_truthy(value: &Value) -> bool {
+    !is_value_falsy(value)
 }
