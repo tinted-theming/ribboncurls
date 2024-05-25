@@ -43,7 +43,11 @@ pub fn create_syntax_tree(tokens: Vec<Token>) -> Result<Vec<SyntaxItem>, Ribbonc
 
                     for other_line in rest_of_lines {
                         let new_content = format!("\n{other_line}");
-                        push_item(&mut syntax_tree, &mut stack, SyntaxItem::Text(new_content))
+                        push_item(
+                            &mut syntax_tree,
+                            &mut stack,
+                            SyntaxItem::Text(new_content.clone()),
+                        );
                     }
                 }
             }
@@ -94,7 +98,7 @@ pub fn create_syntax_tree(tokens: Vec<Token>) -> Result<Vec<SyntaxItem>, Ribbonc
     }
 
     set_standalone_to_syntax_items_mut(&mut syntax_tree);
-    clean_up_syntax_item_spaces(&mut syntax_tree);
+    clean_up_section_item_spaces(&mut syntax_tree);
 
     Ok(syntax_tree)
 }
@@ -171,27 +175,46 @@ fn set_standalone_to_syntax_items_mut(syntax_tree: &mut [SyntaxItem]) {
     }
 }
 
-fn clean_up_syntax_item_spaces(syntax_tree: &mut [SyntaxItem]) {
-    for syntax_item in syntax_tree.iter_mut() {
+// When a Section open or close tag is on a newline, the tag itself
+// should not take up space, so remove the starting and ending newlines
+// and whitespaces accociated with that
+fn clean_up_section_item_spaces(syntax_tree: &mut [SyntaxItem]) {
+    // Iterate with indices so we can access previous items
+    for i in 0..syntax_tree.len() {
         if let SyntaxItem::Section {
             name: _,
             inverted: _,
             items,
-        } = syntax_item
+        } = &mut syntax_tree[i]
         {
-            let first_item = items.first_mut();
-
-            if let Some(SyntaxItem::Text(text)) = first_item {
-                if text.starts_with('\n') {
-                    *text = text.trim_start_matches('\n').to_string()
+            // When the first SyntaxItem is a section, strip the leading
+            // newline and spaces within the SyntaxItem::Section.items
+            if i == 0 {
+                if let Some(SyntaxItem::Text(text)) = items.first_mut() {
+                    if text.starts_with('\n') {
+                        *text = text.trim_start_matches('\n').to_string();
+                    }
                 }
-            }
-
-            let last_item = items.last_mut();
-
-            if let Some(SyntaxItem::Text(text)) = last_item {
+            // Otherwise strip the previous SyntaxItem::Text newline and
+            // spaces
+            } else if let SyntaxItem::Text(text) = &mut syntax_tree[i - 1] {
                 if text.starts_with('\n') {
-                    *text = text.trim_start_matches('\n').to_string()
+                    *text = text.trim_start_matches('\n').trim_start().to_string();
+                }
+            };
+        }
+
+        // Strip the last SyntaxItem::Section.items item if it begins
+        // with a newline and only contains spaces afterwards
+        if let SyntaxItem::Section {
+            name: _,
+            inverted: _,
+            items,
+        } = &mut syntax_tree[i]
+        {
+            if let Some(SyntaxItem::Text(text)) = items.last_mut() {
+                if text.starts_with('\n') {
+                    *text = text.trim_start_matches('\n').to_string();
                 }
             }
         }
