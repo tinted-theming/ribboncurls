@@ -167,7 +167,6 @@ pub fn create_syntax_tree(tokens: Vec<Token>) -> Result<Vec<SyntaxItem>, Ribbonc
                             }
                         }
                         (Some(Token::Text(before_text)), None) => {
-                                println!("standalonen true: {:?}", before_text);
                             if re_before_text.is_match(before_text) {
                                 closed_is_standalone = true;
                             }
@@ -199,7 +198,7 @@ pub fn create_syntax_tree(tokens: Vec<Token>) -> Result<Vec<SyntaxItem>, Ribbonc
     }
 
     set_standalone_to_syntax_items_mut(&mut syntax_tree);
-    clean_up_section_item_spaces(&mut syntax_tree);
+    clean_up_section_item_spaces_mut(&mut syntax_tree);
 
     Ok(syntax_tree)
 }
@@ -279,7 +278,9 @@ fn set_standalone_to_syntax_items_mut(syntax_tree: &mut [SyntaxItem]) {
 // When a Section open or close tag is on a newline, the tag itself
 // should not take up space, so remove the starting and ending newlines
 // and whitespaces accociated with that
-fn clean_up_section_item_spaces(syntax_tree: &mut [SyntaxItem]) {
+fn clean_up_section_item_spaces_mut(syntax_tree: &mut [SyntaxItem]) {
+    let re_before_text = Regex::new(r"\n[ \t]*\z").unwrap();
+    let re_after_text = Regex::new(r"^\n[ \t]*").unwrap();
     // Iterate with indices so we can access previous items
     for i in 0..syntax_tree.len() {
         if let SyntaxItem::Section {
@@ -287,45 +288,36 @@ fn clean_up_section_item_spaces(syntax_tree: &mut [SyntaxItem]) {
             inverted: _,
             items,
             open_is_standalone,
-            closed_is_standalone: _,
+            closed_is_standalone,
         } = &mut syntax_tree[i]
         {
+            // Strip the last SyntaxItem::Section.items item if it begins
+            // with a newline and only contains spaces afterwards
+            if *closed_is_standalone {
+                if let Some(SyntaxItem::Text(text)) = items.last_mut() {
+                    if re_before_text.is_match(text) {
+                        *text = re_before_text.replace_all(text, "").to_string();
+                    }
+                }
+            }
+
             if *open_is_standalone {
                 // When the first SyntaxItem is a section, strip the leading
                 // newline and spaces within the SyntaxItem::Section.items
                 if i == 0 {
                     if let Some(SyntaxItem::Text(text)) = items.first_mut() {
-                        if text.starts_with('\n') {
-                            *text = text.trim_start_matches('\n').to_string();
+                        if re_after_text.is_match(text) {
+                            *text = re_after_text.replace_all(text, "").to_string();
                         }
                     }
                 // Otherwise strip the previous SyntaxItem::Text newline and
                 // spaces
                 } else if let SyntaxItem::Text(text) = &mut syntax_tree[i - 1] {
-                    if text.starts_with('\n') {
-                        *text = text.trim_start_matches('\n').trim_start().to_string();
+                    if re_after_text.is_match(text) {
+                        *text = re_after_text.replace_all(text, "").to_string();
                     }
                 };
             };
-        }
-
-        // Strip the last SyntaxItem::Section.items item if it begins
-        // with a newline and only contains spaces afterwards
-        if let SyntaxItem::Section {
-            name: _,
-            inverted: _,
-            items,
-            open_is_standalone: _,
-            closed_is_standalone,
-        } = &mut syntax_tree[i]
-        {
-            if *closed_is_standalone {
-                if let Some(SyntaxItem::Text(text)) = items.last_mut() {
-                    if text.starts_with('\n') {
-                        *text = text.trim_start_matches('\n').to_string();
-                    }
-                }
-            }
         }
     }
 }
