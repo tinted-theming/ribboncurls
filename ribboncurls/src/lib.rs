@@ -152,13 +152,15 @@ fn render_syntax_tree(
                 name,
                 items,
                 inverted,
+                open_is_standalone: _,
+                closed_is_standalone: _,
             } => {
                 ctx.section_path.push(name.to_string());
-                let section_value_option = find_section_value(ctx, name);
+                let mut section_value_option = None;
                 let mut is_mutating_context_stack = false;
 
-                if let Some(section_value) = &section_value_option {
-                    // println!("section value: {:?}", &section_value);
+                if let Some(section_value) = get_context_value(ctx, &ctx.section_path.join(".")) {
+                    section_value_option = Some(section_value.clone());
                     if matches!(section_value, Value::Mapping(_)) {
                         ctx.data_stack.push(section_value.clone());
 
@@ -251,7 +253,6 @@ fn find_section_value(ctx: &RenderCtx, section_name: &str) -> Option<Value> {
 
     current_option
 }
-
 fn get_context_value<'a>(ctx: &'a RenderCtx, path: &str) -> Option<&'a Value> {
     let context_stack = &ctx.data_stack;
     if path.is_empty() || path.is_empty() {
@@ -260,24 +261,50 @@ fn get_context_value<'a>(ctx: &'a RenderCtx, path: &str) -> Option<&'a Value> {
 
     let parts = path.split('.').collect::<Vec<&str>>();
 
+    // Check for full path matches on property names
     for context in context_stack.iter().rev() {
+        if context.get(path).is_some() {
+            return context.get(path);
+        }
+
+        if let Value::Mapping(_) = context {
+            return get_value(context, &parts.join("."));
+        }
+    }
+
+    // Check for partial path matches on property names
+    for context in context_stack.iter().rev() {
+        // Return context data
         if path == "." {
-            if let Some(current_section) = ctx.section_path.last() {
+            // Root path should return root context
+            if ctx.section_path.is_empty() {
+                return Some(context);
+            // Otherwise attempt to match on context
+            } else if let Some(current_section) = ctx.section_path.last() {
                 if context.get(current_section).is_some() {
-                    return get_value(context, current_section);
+                    return Some(context);
                 };
             }
-        } else if parts.len() == 1 {
+        // Perform a root level search on the context
+        } else if !path.contains('.') {
             if let Value::Mapping(map) = context {
                 if map.get(path).is_some() {
                     return map.get(path);
                 }
             };
-        } else if let Value::Mapping(map) = context {
-            let first_part = parts.first()?;
+        // Only run on paths that match on ctx.section_path order
+        } else if contains_vec_item_order(ctx.section_path.clone(), &parts) {
+            if let Value::Mapping(map) = context {
 
-            if let Some(data) = map.get(first_part) {
-                return get_value(data, &parts[1..].join("."));
+                let first_part = parts.first()?;
+
+                for part_index in 0..parts.len() {
+                    let index = parts.len() - (part_index + 1);
+
+                    if let Some(data) = map.get(first_part) {
+                        return get_value(data, &parts[index..].join("."));
+                    }
+                }
             }
         }
     }
@@ -285,18 +312,78 @@ fn get_context_value<'a>(ctx: &'a RenderCtx, path: &str) -> Option<&'a Value> {
     None
 }
 
+/// Finds the index of a target string within a slice of strings.
+///
+/// # Arguments
+/// * `vec` - A slice of string slices to search.
+/// * `target` - The string slice to find.
+///
+/// # Returns
+/// Returns `Option<usize>` with the index of the first occurrence of `target` if found, otherwise `None`.
+///
+/// # Examples
+/// ```
+/// let vec = ["hello", "world", "rust", "code"];
+/// assert_eq!(find_vec_index(&vec, "rust"), Some(2));
+/// assert_eq!(find_vec_index(&vec, "hello"), Some(0));
+/// assert_eq!(find_vec_index(&vec, "none"), None);
+/// ```
+fn find_vec_index(vec: &[String], target: &str) -> Option<usize> {
+    vec.iter().position(|item| item == target)
+}
+
+/// Checks if all elements of `vec2` appear in the same order within `vec1`.
+///
+/// # Arguments
+/// * `vec1` - A slice of string slices to search within.
+/// * `vec2` - A slice of string slices whose order of appearance in `vec1` is being checked.
+///
+/// # Returns
+/// Returns `true` if all elements of `vec2` appear in the same order within `vec1`, otherwise `false`.
+///
+/// # Examples
+/// ```
+/// let vec1 = ["this", "is", "some", "full", "sentence"];
+/// let vec2 = ["is", "full"];
+/// let vec3 = ["some", "is"];
+/// assert_eq!(contains_vec_item_order(&vec1, &vec2), true);
+/// assert_eq!(contains_vec_item_order(&vec1, &vec3), false);
+/// ```
+fn contains_vec_item_order(vec1: Vec<String>, vec2: &[&str]) -> bool {
+    let mut match_index = 0;
+
+    if vec1.len() < vec2.len() || vec1.is_empty() || vec2.is_empty() {
+        return false;
+    };
+
+    // If the vectors match on partially equal return true
+    if vec1 != vec2 {
+        for item in vec2 {
+            if let Some(index_match) = find_vec_index(&vec1[match_index + 1..], item) {
+                match_index = index_match;
+            } else {
+                return false;
+            }
+        }
+    }
+
+    true
+}
+
 fn get_value<'a>(data: &'a Value, path: &str) -> Option<&'a Value> {
     if path.is_empty() || path.is_empty() {
         return None;
     }
 
-    if path == "." {
-        return Some(data);
-    }
-
     let parts = path.split('.').collect::<Vec<&str>>();
 
+    // Match last item in recursion
     if parts.len() == 1 {
+        return data.get(path);
+    }
+
+    // Match if property `a.b.c.d` exists
+    if let Some(data) = data.get(path) {
         return data.get(path);
     }
 

@@ -15,3 +15,19 @@ pub fn escape_html(input: &str) -> String {
     // Not using shrink_to_fit() on purpose
     output
 }
+
+pub fn get_prev_item<T>(data: &[T], index: usize) -> Option<&T> {
+    if index > 0 {
+        data.get(index - 1)
+    } else {
+        None
+    }
+}
+
+pub fn get_next_item<T>(data: &[T], index: usize) -> Option<&T> {
+    if index < data.len() - 1 {
+        data.get(index + 1)
+    } else {
+        None
+    }
+}
