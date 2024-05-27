@@ -1,7 +1,10 @@
 use regex::Regex;
 
 use super::RibboncurlsError;
-use crate::token::Token;
+use crate::{
+    token::Token,
+    utils::{get_next_item, get_prev_item},
+};
 
 #[derive(Debug)]
 pub enum SyntaxItem {
@@ -20,14 +23,18 @@ pub enum SyntaxItem {
         name: String,
         inverted: bool,
         items: Vec<SyntaxItem>,
+        open_is_standalone: bool,
+        closed_is_standalone: bool,
     },
 }
 
 pub fn create_syntax_tree(tokens: Vec<Token>) -> Result<Vec<SyntaxItem>, RibboncurlsError> {
     let mut syntax_tree: Vec<SyntaxItem> = Vec::new();
-    let mut stack: Vec<SyntaxItem> = Vec::new();
+    let mut stack: Vec<SyntaxItem> = vec![];
+    let re_before_text = Regex::new(r"\n[ \t]*\z").unwrap();
+    let re_after_text = Regex::new(r"^\n[ \t]*").unwrap();
 
-    for token in tokens {
+    for (index, token) in tokens.iter().enumerate() {
         match token {
             Token::Text(content) => {
                 let lines: Vec<&str> = content.split('\n').collect();
@@ -51,13 +58,15 @@ pub fn create_syntax_tree(tokens: Vec<Token>) -> Result<Vec<SyntaxItem>, Ribbonc
                     }
                 }
             }
-            Token::Variable(content) => {
-                push_item(&mut syntax_tree, &mut stack, SyntaxItem::Variable(content))
-            }
+            Token::Variable(content) => push_item(
+                &mut syntax_tree,
+                &mut stack,
+                SyntaxItem::Variable(content.to_string()),
+            ),
             Token::EscapedVariable(content) => push_item(
                 &mut syntax_tree,
                 &mut stack,
-                SyntaxItem::EscapedVariable(content),
+                SyntaxItem::EscapedVariable(content.to_string()),
             ),
             // Token::Partial(content) => push_item(&mut syntax_tree, &mut stack, SyntaxItem::Partial(content)),
             Token::Delimiter(_) => {
@@ -70,28 +79,120 @@ pub fn create_syntax_tree(tokens: Vec<Token>) -> Result<Vec<SyntaxItem>, Ribbonc
                     &mut syntax_tree,
                     &mut stack,
                     SyntaxItem::Comment {
-                        text: content,
+                        text: content.to_string(),
                         is_standalone: false,
                     },
                 );
             }
             Token::OpenSection(name) => {
+                // Set standalone if applicable
+                let mut open_is_standalone = false;
+
+                match (get_prev_item(&tokens, index), get_next_item(&tokens, index)) {
+                    (None, Some(Token::Text(after_text))) => {
+                        if re_after_text.is_match(after_text) {
+                            open_is_standalone = true;
+                        }
+                    }
+                    (Some(Token::Text(before_text)), None) => {
+                        if re_before_text.is_match(before_text) {
+                            open_is_standalone = true;
+                        }
+                    }
+                    (Some(Token::Text(before_text)), Some(Token::Text(after_text))) => {
+                        if re_before_text.is_match(before_text)
+                            && re_after_text.is_match(after_text)
+                        {
+                            open_is_standalone = true;
+                        }
+                    }
+                    _ => {}
+                }
+
                 stack.push(SyntaxItem::Section {
-                    name,
+                    name: name.to_string(),
                     items: Vec::new(),
                     inverted: false,
+                    open_is_standalone,
+                    closed_is_standalone: false,
                 });
             }
             Token::OpenInvertedSection(name) => {
+                // Set standalone if applicable
+                let mut open_is_standalone = false;
+
+                match (get_prev_item(&tokens, index), get_next_item(&tokens, index)) {
+                    (None, Some(Token::Text(after_text))) => {
+                        if re_after_text.is_match(after_text) {
+                            open_is_standalone = true;
+                        }
+                    }
+                    (Some(Token::Text(before_text)), None) => {
+                        if re_before_text.is_match(before_text) {
+                            open_is_standalone = true;
+                        }
+                    }
+                    (Some(Token::Text(before_text)), Some(Token::Text(after_text))) => {
+                        if re_before_text.is_match(before_text)
+                            && re_after_text.is_match(after_text)
+                        {
+                            open_is_standalone = true;
+                        }
+                    }
+                    _ => {}
+                }
+
                 stack.push(SyntaxItem::Section {
-                    name,
+                    name: name.to_string(),
                     items: Vec::new(),
                     inverted: true,
+                    open_is_standalone,
+                    closed_is_standalone: false,
                 });
             }
             Token::CloseSection(_) => {
-                if let Some(finished_section) = stack.pop() {
-                    push_item(&mut syntax_tree, &mut stack, finished_section);
+                if let Some(SyntaxItem::Section {
+                    name,
+                    inverted,
+                    items,
+                    open_is_standalone,
+                    mut closed_is_standalone,
+                }) = stack.pop()
+                {
+                    // Set standalone if applicable
+                    match (get_prev_item(&tokens, index), get_next_item(&tokens, index)) {
+                        (None, Some(Token::Text(after_text))) => {
+                            if re_after_text.is_match(after_text) {
+                                closed_is_standalone = true;
+                            }
+                        }
+                        (Some(Token::Text(before_text)), None) => {
+                                println!("standalonen true: {:?}", before_text);
+                            if re_before_text.is_match(before_text) {
+                                closed_is_standalone = true;
+                            }
+                        }
+                        (Some(Token::Text(before_text)), Some(Token::Text(after_text))) => {
+                            if re_before_text.is_match(before_text)
+                                && re_after_text.is_match(after_text)
+                            {
+                                closed_is_standalone = true;
+                            }
+                        }
+                        _ => {}
+                    }
+
+                    push_item(
+                        &mut syntax_tree,
+                        &mut stack,
+                        SyntaxItem::Section {
+                            name,
+                            inverted,
+                            items,
+                            open_is_standalone,
+                            closed_is_standalone,
+                        },
+                    );
                 }
             }
         }
@@ -185,22 +286,26 @@ fn clean_up_section_item_spaces(syntax_tree: &mut [SyntaxItem]) {
             name: _,
             inverted: _,
             items,
+            open_is_standalone,
+            closed_is_standalone: _,
         } = &mut syntax_tree[i]
         {
-            // When the first SyntaxItem is a section, strip the leading
-            // newline and spaces within the SyntaxItem::Section.items
-            if i == 0 {
-                if let Some(SyntaxItem::Text(text)) = items.first_mut() {
-                    if text.starts_with('\n') {
-                        *text = text.trim_start_matches('\n').to_string();
+            if *open_is_standalone {
+                // When the first SyntaxItem is a section, strip the leading
+                // newline and spaces within the SyntaxItem::Section.items
+                if i == 0 {
+                    if let Some(SyntaxItem::Text(text)) = items.first_mut() {
+                        if text.starts_with('\n') {
+                            *text = text.trim_start_matches('\n').to_string();
+                        }
                     }
-                }
-            // Otherwise strip the previous SyntaxItem::Text newline and
-            // spaces
-            } else if let SyntaxItem::Text(text) = &mut syntax_tree[i - 1] {
-                if text.starts_with('\n') {
-                    *text = text.trim_start_matches('\n').trim_start().to_string();
-                }
+                // Otherwise strip the previous SyntaxItem::Text newline and
+                // spaces
+                } else if let SyntaxItem::Text(text) = &mut syntax_tree[i - 1] {
+                    if text.starts_with('\n') {
+                        *text = text.trim_start_matches('\n').trim_start().to_string();
+                    }
+                };
             };
         }
 
@@ -210,11 +315,15 @@ fn clean_up_section_item_spaces(syntax_tree: &mut [SyntaxItem]) {
             name: _,
             inverted: _,
             items,
+            open_is_standalone: _,
+            closed_is_standalone,
         } = &mut syntax_tree[i]
         {
-            if let Some(SyntaxItem::Text(text)) = items.last_mut() {
-                if text.starts_with('\n') {
-                    *text = text.trim_start_matches('\n').to_string();
+            if *closed_is_standalone {
+                if let Some(SyntaxItem::Text(text)) = items.last_mut() {
+                    if text.starts_with('\n') {
+                        *text = text.trim_start_matches('\n').to_string();
+                    }
                 }
             }
         }
