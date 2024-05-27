@@ -25,9 +25,14 @@ pub enum RibboncurlsError {
     YamlParseError(#[from] serde_yaml::Error),
 }
 
-struct ParseContext {
+struct TokenCtx {
     left_delimiter: String,
     right_delimiter: String,
+}
+
+struct RenderCtx {
+    section_path: Vec<String>,
+    data_stack: Vec<Value>,
 }
 
 pub fn render(
@@ -35,17 +40,21 @@ pub fn render(
     data: &str,
     partials: Option<&str>,
 ) -> Result<String, RibboncurlsError> {
-    let mut context_stack =
-        vec![serde_yaml::from_str(data).unwrap_or(Value::String(data.to_string()))];
+    let data_stack = vec![serde_yaml::from_str(data).unwrap_or(Value::String(data.to_string()))];
 
-    let mut ctx = ParseContext {
+    let mut render_context = RenderCtx {
+        section_path: vec![],
+        data_stack,
+    };
+
+    let mut ctx = TokenCtx {
         left_delimiter: DEFAULT_LEFT_DELIMITER.to_string(),
         right_delimiter: DEFAULT_RIGHT_DELIMITER.to_string(),
     };
     let tokens = tokenize(template, &mut ctx)?;
     let syntax_tree = create_syntax_tree(tokens)?;
 
-    render_syntax_tree(&syntax_tree, &mut context_stack, true)
+    render_syntax_tree(&syntax_tree, &mut render_context)
 }
 
 fn remove_leading_space(output: &mut String) {
@@ -66,14 +75,15 @@ fn remove_leading_line_and_space(output: &mut String) {
 
 fn render_syntax_tree(
     syntax_tree: &[SyntaxItem],
-    context_stack: &mut Vec<Value>,
-    is_root: bool,
+    ctx: &mut RenderCtx,
 ) -> Result<String, RibboncurlsError> {
     let mut output = String::new();
 
     for (index, node) in syntax_tree.iter().enumerate() {
         match node {
             SyntaxItem::Text(content) => {
+                let is_root = ctx.section_path.is_empty();
+
                 if is_root && (index == 1 || index == 2) {
                     match syntax_tree.get(index - 1) {
                         Some(SyntaxItem::Delimiter { is_standalone })
@@ -98,12 +108,12 @@ fn render_syntax_tree(
                 }
             }
             SyntaxItem::EscapedVariable(content) => {
-                if let Some(value) = get_context_value(context_stack, content.as_str()) {
+                if let Some(value) = get_context_value(ctx, content.as_str()) {
                     output.push_str(&escape_html(&serde_yaml_value_to_string(value)));
                 }
             }
             SyntaxItem::Variable(content) => {
-                if let Some(value) = get_context_value(context_stack, content.as_str()) {
+                if let Some(value) = get_context_value(ctx, content.as_str()) {
                     output.push_str(&serde_yaml_value_to_string(value));
                 }
             }
@@ -111,6 +121,8 @@ fn render_syntax_tree(
                 text: _,
                 is_standalone,
             } => {
+                let is_root = ctx.section_path.is_empty();
+
                 if index == 1 && is_root {
                     if let Some(SyntaxItem::Text(text_content)) = syntax_tree.first() {
                         let re = Regex::new(r"^[ \t]*\z").unwrap();
@@ -141,12 +153,14 @@ fn render_syntax_tree(
                 items,
                 inverted,
             } => {
-                let section_value_option = find_section_value(context_stack, name);
+                ctx.section_path.push(name.to_string());
+                let section_value_option = find_section_value(ctx, name);
                 let mut is_mutating_context_stack = false;
 
                 if let Some(section_value) = &section_value_option {
+                    // println!("section value: {:?}", &section_value);
                     if matches!(section_value, Value::Mapping(_)) {
-                        context_stack.push(section_value.clone());
+                        ctx.data_stack.push(section_value.clone());
 
                         is_mutating_context_stack = true;
                     }
@@ -155,19 +169,19 @@ fn render_syntax_tree(
                 match (section_value_option, inverted) {
                     (Some(value), false) => {
                         if is_value_truthy(&value) {
-                            let section_output = render_syntax_tree(items, context_stack, false)?;
+                            let section_output = render_syntax_tree(items, ctx)?;
 
                             output.push_str(&section_output);
                         };
                     }
                     (None, true) => {
-                        let section_output = render_syntax_tree(items, context_stack, false)?;
+                        let section_output = render_syntax_tree(items, ctx)?;
 
                         output.push_str(&section_output);
                     }
                     (Some(value), true) => {
                         if is_value_falsy(&value) && !matches!(value, Value::Mapping(_)) {
-                            let section_output = render_syntax_tree(items, context_stack, false)?;
+                            let section_output = render_syntax_tree(items, ctx)?;
 
                             output.push_str(&section_output);
                         }
@@ -176,8 +190,9 @@ fn render_syntax_tree(
                 }
 
                 if is_mutating_context_stack {
-                    context_stack.pop();
+                    ctx.data_stack.pop();
                 }
+                ctx.section_path.pop();
             }
         };
     }
@@ -201,17 +216,19 @@ fn serde_yaml_value_to_string(value: &Value) -> String {
     }
 }
 
-fn find_section_value(context_stack: &[Value], section_name: &str) -> Option<Value> {
+fn find_section_value(ctx: &RenderCtx, section_name: &str) -> Option<Value> {
+    let context_stack = &ctx.data_stack;
     let parts = section_name.split('.').collect::<Vec<&str>>();
     let mut current_option: Option<Value> = None;
 
-    for context in context_stack.iter().rev() {
+    'outer: for context in context_stack.iter().rev() {
         current_option = Some(context.clone());
         for (index, part) in parts.clone().iter().enumerate() {
             if let Some(current) = current_option {
                 match current.get(part) {
                     Some(Value::Mapping(map)) => {
                         current_option = Some(Value::Mapping(map.clone()));
+                        break 'outer;
                     }
                     Some(value) => {
                         if index == parts.len() - 1 {
@@ -219,6 +236,8 @@ fn find_section_value(context_stack: &[Value], section_name: &str) -> Option<Val
                         } else {
                             current_option = None;
                         }
+
+                        break 'outer;
                     }
                     None => {
                         current_option = None;
@@ -233,33 +252,33 @@ fn find_section_value(context_stack: &[Value], section_name: &str) -> Option<Val
     current_option
 }
 
-fn get_context_value<'a>(context_stack: &'a [Value], path: &str) -> Option<&'a Value> {
+fn get_context_value<'a>(ctx: &'a RenderCtx, path: &str) -> Option<&'a Value> {
+    let context_stack = &ctx.data_stack;
     if path.is_empty() || path.is_empty() {
         return None;
-    }
-
-    if path == "." {
-        if let Some(root_context) = context_stack.first() {
-            return Some(root_context);
-        }
     }
 
     let parts = path.split('.').collect::<Vec<&str>>();
 
     for context in context_stack.iter().rev() {
-        if parts.len() == 1 {
-            return match context {
-                Value::Mapping(map) => map.get(path),
-                _ => None,
+        if path == "." {
+            if let Some(current_section) = ctx.section_path.last() {
+                if context.get(current_section).is_some() {
+                    return get_value(context, current_section);
+                };
+            }
+        } else if parts.len() == 1 {
+            if let Value::Mapping(map) = context {
+                if map.get(path).is_some() {
+                    return map.get(path);
+                }
             };
         } else if let Value::Mapping(map) = context {
             let first_part = parts.first()?;
 
-            if let Some(map) = map.get(first_part) {
-                return get_value(map, &parts[1..].join("."));
-            } else {
-                return None;
-            };
+            if let Some(data) = map.get(first_part) {
+                return get_value(data, &parts[1..].join("."));
+            }
         }
     }
 

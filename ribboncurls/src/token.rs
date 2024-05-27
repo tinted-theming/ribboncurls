@@ -1,5 +1,5 @@
-use super::ParseContext;
 use super::RibboncurlsError;
+use super::TokenCtx;
 
 #[derive(Debug)]
 pub enum Token {
@@ -14,7 +14,7 @@ pub enum Token {
     Delimiter((String, String)),
 }
 
-pub fn tokenize(template: &str, ctx: &mut ParseContext) -> Result<Vec<Token>, RibboncurlsError> {
+pub fn tokenize(template: &str, ctx: &mut TokenCtx) -> Result<Vec<Token>, RibboncurlsError> {
     let mut tokens = Vec::new();
     let mut i = 0;
 
@@ -78,7 +78,7 @@ pub fn tokenize(template: &str, ctx: &mut ParseContext) -> Result<Vec<Token>, Ri
     Ok(tokens)
 }
 
-fn parse_tag(content: &str, ctx: &mut ParseContext) -> Result<Token, RibboncurlsError> {
+fn parse_tag(content: &str, ctx: &mut TokenCtx) -> Result<Token, RibboncurlsError> {
     match content.chars().next() {
         Some('&') => Ok(Token::Variable(content[1..].trim().to_string())),
         Some('#') => Ok(Token::OpenSection(content[1..].trim().to_string())),
