@@ -291,6 +291,7 @@ fn clean_up_section_item_spaces_mut(syntax_tree: &mut [SyntaxItem]) {
             closed_is_standalone,
         } = &mut syntax_tree[i]
         {
+            clean_up_section_item_spaces_mut(items);
             // Strip the last SyntaxItem::Section.items item if it begins
             // with a newline and only contains spaces afterwards
             if *closed_is_standalone {
@@ -302,19 +303,23 @@ fn clean_up_section_item_spaces_mut(syntax_tree: &mut [SyntaxItem]) {
             }
 
             if *open_is_standalone {
-                // When the first SyntaxItem is a section, strip the leading
-                // newline and spaces within the SyntaxItem::Section.items
-                if i == 0 {
-                    if let Some(SyntaxItem::Text(text)) = items.first_mut() {
-                        if re_after_text.is_match(text) {
-                            *text = re_after_text.replace_all(text, "").to_string();
+                match i {
+                    // When the first SyntaxItem is a section, strip the leading newline and spaces
+                    // within the SyntaxItem::Section.items
+                    0 => {
+                        if let Some(SyntaxItem::Text(text)) = items.first_mut() {
+                            if re_after_text.is_match(text) {
+                                *text = re_after_text.replace_all(text, "").to_string();
+                            }
                         }
                     }
-                // Otherwise strip the previous SyntaxItem::Text newline and
-                // spaces
-                } else if let SyntaxItem::Text(text) = &mut syntax_tree[i - 1] {
-                    if re_after_text.is_match(text) {
-                        *text = re_after_text.replace_all(text, "").to_string();
+                    // Strip the previous SyntaxItem::Text newline and spaces
+                    _ => {
+                        if let SyntaxItem::Text(text) = &mut syntax_tree[i - 1] {
+                            if re_after_text.is_match(text) {
+                                *text = re_after_text.replace_all(text, "").to_string();
+                            }
+                        };
                     }
                 };
             };
