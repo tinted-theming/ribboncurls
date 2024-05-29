@@ -158,38 +158,76 @@ fn render_syntax_tree(
                 ctx.section_path.push(name.to_string());
                 let mut section_value_option = None;
                 let mut is_mutating_context_stack = false;
+                let mut iterator_option: Option<Value> = None;
 
+                // Add section context to the ctx.data_stack
                 if let Some(section_value) = get_context_value(ctx, &ctx.section_path.join(".")) {
                     section_value_option = Some(section_value.clone());
                     if matches!(section_value, Value::Mapping(_)) {
                         ctx.data_stack.push(section_value.clone());
 
                         is_mutating_context_stack = true;
+                    } else if matches!(section_value, Value::Sequence(_)) {
+                        iterator_option = Some(section_value.clone());
                     }
                 }
 
-                match (section_value_option, inverted) {
-                    (Some(value), false) => {
-                        if is_value_truthy(&value) {
-                            let section_output = render_syntax_tree(items, ctx)?;
+                // TODO: remove duplicate code
+                // Iterate and render over the sequence
+                match (iterator_option, inverted) {
+                    (Some(Value::Sequence(section_value)), false) => {
+                        for item in section_value {
+                            ctx.data_stack.push(item);
+                            match (&section_value_option, inverted) {
+                                (Some(value), false) => {
+                                    if is_value_truthy(value) {
+                                        let section_output = render_syntax_tree(items, ctx)?;
 
-                            output.push_str(&section_output);
-                        };
-                    }
-                    (None, true) => {
-                        let section_output = render_syntax_tree(items, ctx)?;
+                                        output.push_str(&section_output);
+                                    };
+                                }
+                                (None, true) => {
+                                    let section_output = render_syntax_tree(items, ctx)?;
 
-                        output.push_str(&section_output);
+                                    output.push_str(&section_output);
+                                }
+                                (Some(value), true) => {
+                                    if is_value_falsy(value) && !matches!(value, Value::Mapping(_))
+                                    {
+                                        let section_output = render_syntax_tree(items, ctx)?;
+
+                                        output.push_str(&section_output);
+                                    }
+                                }
+                                (None, false) => {}
+                            }
+                            ctx.data_stack.pop();
+                        }
                     }
-                    (Some(value), true) => {
-                        if is_value_falsy(&value) && !matches!(value, Value::Mapping(_)) {
+                    // Otherwise render without iteration
+                    _ => match (section_value_option, inverted) {
+                        (Some(value), false) => {
+                            if is_value_truthy(&value) {
+                                let section_output = render_syntax_tree(items, ctx)?;
+
+                                output.push_str(&section_output);
+                            };
+                        }
+                        (None, true) => {
                             let section_output = render_syntax_tree(items, ctx)?;
 
                             output.push_str(&section_output);
                         }
-                    }
-                    (None, false) => {}
-                }
+                        (Some(value), true) => {
+                            if is_value_falsy(&value) {
+                                let section_output = render_syntax_tree(items, ctx)?;
+
+                                output.push_str(&section_output);
+                            }
+                        }
+                        (None, false) => {}
+                    },
+                };
 
                 if is_mutating_context_stack {
                     ctx.data_stack.pop();
@@ -218,156 +256,84 @@ fn serde_yaml_value_to_string(value: &Value) -> String {
     }
 }
 
-fn find_section_value(ctx: &RenderCtx, section_name: &str) -> Option<Value> {
+fn get_context_value<'a>(ctx: &'a RenderCtx, path: &str) -> Option<&'a Value> {
     let context_stack = &ctx.data_stack;
-    let parts = section_name.split('.').collect::<Vec<&str>>();
-    let mut current_option: Option<Value> = None;
 
-    'outer: for context in context_stack.iter().rev() {
-        current_option = Some(context.clone());
-        for (index, part) in parts.clone().iter().enumerate() {
-            if let Some(current) = current_option {
-                match current.get(part) {
-                    Some(Value::Mapping(map)) => {
-                        current_option = Some(Value::Mapping(map.clone()));
-                        break 'outer;
-                    }
-                    Some(value) => {
-                        if index == parts.len() - 1 {
-                            current_option = Some(value.clone());
-                        } else {
-                            current_option = None;
-                        }
+    if path.is_empty() || ctx.data_stack.is_empty() {
+        return None;
+    }
+    // Return context for "." variables
+    if path == "." {
+        return match (ctx.section_path.last(), context_stack.last()) {
+            (Some(current_section), Some(context)) => {
+            let value_option = context.get(current_section);
+            if value_option.is_some() {
+                return value_option;
+            }
 
-                        break 'outer;
-                    }
-                    None => {
-                        current_option = None;
-
-                        continue;
-                    }
-                }
+            Some(context)
+        }
+            (None, Some(context)) => {
+                Some(context)
+            }
+            _ => {
+                None
+                // throw
             }
         }
     }
 
-    current_option
-}
-fn get_context_value<'a>(ctx: &'a RenderCtx, path: &str) -> Option<&'a Value> {
-    let context_stack = &ctx.data_stack;
-    if path.is_empty() || path.is_empty() {
-        return None;
-    }
+    let parts: Vec<&str> = if path == "." {
+        ctx.section_path.iter().map(|s| s.as_str()).collect()
+    } else {
+        path.split('.').collect::<Vec<&str>>()
+    };
 
-    let parts = path.split('.').collect::<Vec<&str>>();
+    // context_stack index at which the root path value begins
+    let mut context_stack_start_index: usize = 0;
 
-    // Check for full path matches on property names
-    for context in context_stack.iter().rev() {
-        if context.get(path).is_some() {
-            return context.get(path);
-        }
-
+    // Does root path exist?
+    for (index, context) in context_stack.iter().enumerate().rev() {
         if let Value::Mapping(_) = context {
-            return get_value(context, &parts.join("."));
+            let value_option = get_value(context, &parts.join("."));
+
+            match (parts.first(), value_option) {
+                (Some(first_part), Some(_)) => {
+                    if get_value(context, first_part).is_some() {
+                        context_stack_start_index = index;
+                        break;
+                    }
+                }
+                (None, Some(_)) | (None, None) => {
+                    // Throw
+                    return None;
+                }
+                (Some(_), None) => {
+                    continue;
+                }
+            }
         }
     }
 
     // Check for partial path matches on property names
-    for context in context_stack.iter().rev() {
-        // Return context data
-        if path == "." {
-            // Root path should return root context
-            if ctx.section_path.is_empty() {
-                return Some(context);
-            // Otherwise attempt to match on context
-            } else if let Some(current_section) = ctx.section_path.last() {
-                if context.get(current_section).is_some() {
-                    return Some(context);
-                };
-            }
-        // Perform a root level search on the context
-        } else if !path.contains('.') {
-            if let Value::Mapping(map) = context {
-                if map.get(path).is_some() {
-                    return map.get(path);
-                }
-            };
-        // Only run on paths that match on ctx.section_path order
-        } else if contains_vec_item_order(ctx.section_path.clone(), &parts) {
-            if let Value::Mapping(map) = context {
+    for context in context_stack[context_stack_start_index..].iter().rev() {
+        if context.get(path).is_some() {
+            return context.get(path);
+        } else if let Some(value) = get_value(context, &parts.join(".")) {
+            return Some(value);
+        } else {
+            // Search for values from the furthest section back to the root
+            for part_index_rev in 0..parts.len() {
+                let part_index = parts.len() - (part_index_rev + 1);
 
-                let first_part = parts.first()?;
-
-                for part_index in 0..parts.len() {
-                    let index = parts.len() - (part_index + 1);
-
-                    if let Some(data) = map.get(first_part) {
-                        return get_value(data, &parts[index..].join("."));
-                    }
+                if let Some(value) = get_value(context, parts[part_index]) {
+                    return Some(value);
                 }
             }
         }
     }
 
     None
-}
-
-/// Finds the index of a target string within a slice of strings.
-///
-/// # Arguments
-/// * `vec` - A slice of string slices to search.
-/// * `target` - The string slice to find.
-///
-/// # Returns
-/// Returns `Option<usize>` with the index of the first occurrence of `target` if found, otherwise `None`.
-///
-/// # Examples
-/// ```
-/// let vec = ["hello", "world", "rust", "code"];
-/// assert_eq!(find_vec_index(&vec, "rust"), Some(2));
-/// assert_eq!(find_vec_index(&vec, "hello"), Some(0));
-/// assert_eq!(find_vec_index(&vec, "none"), None);
-/// ```
-fn find_vec_index(vec: &[String], target: &str) -> Option<usize> {
-    vec.iter().position(|item| item == target)
-}
-
-/// Checks if all elements of `vec2` appear in the same order within `vec1`.
-///
-/// # Arguments
-/// * `vec1` - A slice of string slices to search within.
-/// * `vec2` - A slice of string slices whose order of appearance in `vec1` is being checked.
-///
-/// # Returns
-/// Returns `true` if all elements of `vec2` appear in the same order within `vec1`, otherwise `false`.
-///
-/// # Examples
-/// ```
-/// let vec1 = ["this", "is", "some", "full", "sentence"];
-/// let vec2 = ["is", "full"];
-/// let vec3 = ["some", "is"];
-/// assert_eq!(contains_vec_item_order(&vec1, &vec2), true);
-/// assert_eq!(contains_vec_item_order(&vec1, &vec3), false);
-/// ```
-fn contains_vec_item_order(vec1: Vec<String>, vec2: &[&str]) -> bool {
-    let mut match_index = 0;
-
-    if vec1.len() < vec2.len() || vec1.is_empty() || vec2.is_empty() {
-        return false;
-    };
-
-    // If the vectors match on partially equal return true
-    if vec1 != vec2 {
-        for item in vec2 {
-            if let Some(index_match) = find_vec_index(&vec1[match_index + 1..], item) {
-                match_index = index_match;
-            } else {
-                return false;
-            }
-        }
-    }
-
-    true
 }
 
 fn get_value<'a>(data: &'a Value, path: &str) -> Option<&'a Value> {
@@ -397,7 +363,7 @@ fn get_value<'a>(data: &'a Value, path: &str) -> Option<&'a Value> {
                 None
             }
         }
-        _ => None,
+        _ => Some(&Value::Null),
     }
 }
 
