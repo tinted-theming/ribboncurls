@@ -9,7 +9,7 @@ pub enum Token {
     OpenSection(String),
     CloseSection(String),
     OpenInvertedSection(String),
-    // Partial(String),
+    Partial(String),
     Comment(String),
     Delimiter((String, String)),
 }
@@ -84,7 +84,7 @@ fn parse_tag(content: &str, ctx: &mut TokenCtx) -> Result<Token, RibboncurlsErro
         Some('#') => Ok(Token::OpenSection(content[1..].trim().to_string())),
         Some('/') => Ok(Token::CloseSection(content[1..].trim().to_string())),
         Some('^') => Ok(Token::OpenInvertedSection(content[1..].trim().to_string())),
-        // '>' => Some(Token::Partial(content[1..].trim().to_string())),
+        Some('>') => Ok(Token::Partial(content[1..].trim().to_string())),
         Some('!') => Ok(Token::Comment(content[1..].trim().to_string())),
         Some('=') => {
             let delimiters: Vec<&str> = content[1..content.len() - 1].trim().split(' ').collect();
