@@ -14,7 +14,7 @@ pub enum SyntaxItem {
     Delimiter {
         is_standalone: bool,
     },
-    // Partial(String),
+    Partial(String),
     Comment {
         text: String,
         is_standalone: bool,
@@ -68,7 +68,11 @@ pub fn create_syntax_tree(tokens: Vec<Token>) -> Result<Vec<SyntaxItem>, Ribbonc
                 &mut stack,
                 SyntaxItem::EscapedVariable(content.to_string()),
             ),
-            // Token::Partial(content) => push_item(&mut syntax_tree, &mut stack, SyntaxItem::Partial(content)),
+            Token::Partial(name) => push_item(
+                &mut syntax_tree,
+                &mut stack,
+                SyntaxItem::Partial(name.to_string()),
+            ),
             Token::Delimiter(_) => {
                 syntax_tree.push(SyntaxItem::Delimiter {
                     is_standalone: false,

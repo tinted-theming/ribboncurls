@@ -30,9 +30,11 @@ struct TokenCtx {
     right_delimiter: String,
 }
 
+#[derive(Debug)]
 struct RenderCtx {
-    section_path: Vec<String>,
     data_stack: Vec<Value>,
+    partials: Value,
+    section_path: Vec<String>,
 }
 
 pub fn render(
@@ -43,8 +45,9 @@ pub fn render(
     let data_stack = vec![serde_yaml::from_str(data).unwrap_or(Value::String(data.to_string()))];
 
     let mut render_context = RenderCtx {
-        section_path: vec![],
         data_stack,
+        partials: serde_yaml::from_str(partials.unwrap_or("null"))?,
+        section_path: vec![],
     };
 
     let mut ctx = TokenCtx {
@@ -115,6 +118,20 @@ fn render_syntax_tree(
             SyntaxItem::Variable(content) => {
                 if let Some(value) = get_context_value(ctx, content.as_str()) {
                     output.push_str(&serde_yaml_value_to_string(value));
+                }
+            }
+            SyntaxItem::Partial(partial_name) => {
+                if let Some(partial_data) = ctx.partials.clone().get(partial_name) {
+                    let mut token_ctx = TokenCtx {
+                        left_delimiter: DEFAULT_LEFT_DELIMITER.to_string(),
+                        right_delimiter: DEFAULT_RIGHT_DELIMITER.to_string(),
+                    };
+                    let partial_tokens =
+                        tokenize(partial_data.as_str().unwrap(), &mut token_ctx).expect("waaa");
+                    let tree = create_syntax_tree(partial_tokens)?;
+                    let rendered = render_syntax_tree(&tree, ctx)?;
+
+                    output.push_str(&rendered);
                 }
             }
             SyntaxItem::Comment {
@@ -266,21 +283,19 @@ fn get_context_value<'a>(ctx: &'a RenderCtx, path: &str) -> Option<&'a Value> {
     if path == "." {
         return match (ctx.section_path.last(), context_stack.last()) {
             (Some(current_section), Some(context)) => {
-            let value_option = context.get(current_section);
-            if value_option.is_some() {
-                return value_option;
-            }
+                let value_option = context.get(current_section);
+                if value_option.is_some() {
+                    return value_option;
+                }
 
-            Some(context)
-        }
-            (None, Some(context)) => {
                 Some(context)
             }
+            (None, Some(context)) => Some(context),
             _ => {
                 None
                 // throw
             }
-        }
+        };
     }
 
     let parts: Vec<&str> = if path == "." {
