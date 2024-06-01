@@ -33,6 +33,9 @@ pub fn create_syntax_tree(tokens: Vec<Token>) -> Result<Vec<SyntaxItem>, Ribbonc
     let mut stack: Vec<SyntaxItem> = vec![];
     let re_before_text = Regex::new(r"\n[ \t]*\z").unwrap();
     let re_after_text = Regex::new(r"^\n[ \t]*").unwrap();
+    // If SyntaxItem::Text whitespace matches it must be index == 0 since all text should start
+    // with '\n' char
+    let re_whitespace = Regex::new(r"^[ \t]*\z").unwrap();
 
     for (index, token) in tokens.iter().enumerate() {
         match token {
@@ -99,12 +102,15 @@ pub fn create_syntax_tree(tokens: Vec<Token>) -> Result<Vec<SyntaxItem>, Ribbonc
                         }
                     }
                     (Some(Token::Text(before_text)), None) => {
-                        if re_before_text.is_match(before_text) {
+                        if re_before_text.is_match(before_text)
+                            || re_whitespace.is_match(before_text)
+                        {
                             open_is_standalone = true;
                         }
                     }
                     (Some(Token::Text(before_text)), Some(Token::Text(after_text))) => {
-                        if re_before_text.is_match(before_text)
+                        if (re_before_text.is_match(before_text)
+                            || re_whitespace.is_match(before_text))
                             && re_after_text.is_match(after_text)
                         {
                             open_is_standalone = true;
@@ -132,12 +138,15 @@ pub fn create_syntax_tree(tokens: Vec<Token>) -> Result<Vec<SyntaxItem>, Ribbonc
                         }
                     }
                     (Some(Token::Text(before_text)), None) => {
-                        if re_before_text.is_match(before_text) {
+                        if re_before_text.is_match(before_text)
+                            || re_whitespace.is_match(before_text)
+                        {
                             open_is_standalone = true;
                         }
                     }
                     (Some(Token::Text(before_text)), Some(Token::Text(after_text))) => {
-                        if re_before_text.is_match(before_text)
+                        if (re_before_text.is_match(before_text)
+                            || re_whitespace.is_match(before_text))
                             && re_after_text.is_match(after_text)
                         {
                             open_is_standalone = true;
@@ -279,13 +288,36 @@ fn set_standalone_to_syntax_items_mut(syntax_tree: &mut [SyntaxItem]) {
     }
 }
 
-// When a Section open or close tag is on a newline, the tag itself
-// should not take up space, so remove the starting and ending newlines
-// and whitespaces accociated with that
-fn clean_up_section_item_spaces_mut(syntax_tree: &mut [SyntaxItem]) {
-    let re_before_text = Regex::new(r"\n[ \t]*\z").unwrap();
+// When a Section open or close tag is on a newline, the tag itself should not take up space, so
+// remove the starting and ending newlines and whitespaces accociated with that
+//
+// This strips away the content within the section since that's easier to deal with, even though
+// technically the leading-space following a \n char, section tag and then following newline char
+// is what constitutes a standalone tag. To deal with more easily within ribboncurls, a check is
+// done to determine if the previous char matches `\n[ \t]*\z`. If that's the case it strips away
+// the internal newline and end newline instead of mutating the items around the section.
+fn clean_up_section_item_spaces_mut(syntax_tree: &mut Vec<SyntaxItem>) {
+    let re_before_text = Regex::new(r"^\n[ \t]*\z").unwrap();
+    let re_before_text_last_syntax_item = Regex::new(r"[ \t]*\z").unwrap();
     let re_after_text = Regex::new(r"^\n[ \t]*").unwrap();
+
+    // If the first item is only white-space and the second item is standalone, remove the white
+    // space
+    if let Some(SyntaxItem::Section {
+        open_is_standalone: true,
+        ..
+    }) = syntax_tree.get(1)
+    {
+        if let Some(SyntaxItem::Text(text)) = syntax_tree.first() {
+            let re_before_text_white_space = Regex::new(r"[ \t]*\z").unwrap();
+            if re_before_text_white_space.is_match(text) {
+                syntax_tree.remove(0);
+            }
+        }
+    }
+
     // Iterate with indices so we can access previous items
+    let syntax_tree_len = syntax_tree.len();
     for i in 0..syntax_tree.len() {
         if let SyntaxItem::Section {
             name: _,
@@ -296,11 +328,18 @@ fn clean_up_section_item_spaces_mut(syntax_tree: &mut [SyntaxItem]) {
         } = &mut syntax_tree[i]
         {
             clean_up_section_item_spaces_mut(items);
+
             // Strip the last SyntaxItem::Section.items item if it begins
             // with a newline and only contains spaces afterwards
             if *closed_is_standalone {
                 if let Some(SyntaxItem::Text(text)) = items.last_mut() {
-                    if re_before_text.is_match(text) {
+                    if i == syntax_tree_len - 1 {
+                        if re_before_text_last_syntax_item.is_match(text) {
+                            *text = re_before_text_last_syntax_item
+                                .replace_all(text, "")
+                                .to_string();
+                        }
+                    } else if re_before_text.is_match(text) {
                         *text = re_before_text.replace_all(text, "").to_string();
                     }
                 }
