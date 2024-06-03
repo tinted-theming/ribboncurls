@@ -15,7 +15,10 @@ pub enum SyntaxItem {
     Delimiter {
         is_standalone: bool,
     },
-    Partial(String),
+    Partial {
+        name: String,
+        is_standalone: bool,
+    },
     Comment {
         text: String,
         is_standalone: bool,
@@ -84,7 +87,10 @@ pub fn create_syntax_tree(
             Token::Partial(name) => push_item(
                 &mut syntax_tree,
                 &mut stack,
-                SyntaxItem::Partial(name.to_string()),
+                SyntaxItem::Partial {
+                    name: name.to_string(),
+                    is_standalone: false,
+                },
             ),
             Token::Delimiter(_) => {
                 syntax_tree.push(SyntaxItem::Delimiter {
@@ -222,6 +228,7 @@ pub fn create_syntax_tree(
 
     set_standalone_to_syntax_items_mut(&mut syntax_tree, &ctx);
     clean_up_section_item_spaces_mut(&mut syntax_tree, &ctx);
+    clean_up_partial_item_spaces_mut(&mut syntax_tree, &ctx);
 
     Ok(syntax_tree)
 }
@@ -285,6 +292,12 @@ fn set_standalone_to_syntax_items_mut(syntax_tree: &mut [SyntaxItem], ctx: &Synt
     fn set_standalone(syntax_tree: &mut [SyntaxItem], index: usize) {
         match syntax_tree.get_mut(index) {
             Some(SyntaxItem::Comment {
+                ref mut is_standalone,
+                ..
+            }) => {
+                *is_standalone = true;
+            }
+            Some(SyntaxItem::Partial {
                 ref mut is_standalone,
                 ..
             }) => {
@@ -383,6 +396,29 @@ fn clean_up_section_item_spaces_mut(syntax_tree: &mut Vec<SyntaxItem>, ctx: &Syn
                                 *text = re_after_text.replace_all(text, "").to_string();
                             }
                         };
+                    }
+                };
+            };
+        }
+    }
+}
+
+fn clean_up_partial_item_spaces_mut(syntax_tree: &mut [SyntaxItem], ctx: &SyntaxCtx) {
+    let re_after_text = get_regex_for_newline(
+        NewlineRegex::StartsWithNewlineFollowedByWhitespace,
+        ctx.newline,
+    );
+    for i in 0..syntax_tree.len() {
+        if let SyntaxItem::Partial {
+            name: _,
+            is_standalone,
+        } = &mut syntax_tree[i]
+        {
+            if *is_standalone && i < syntax_tree.len() - 1 {
+                // Strip the next SyntaxItem::Text newline and spaces
+                if let SyntaxItem::Text(text) = &mut syntax_tree[i + 1] {
+                    if re_after_text.is_match(text) {
+                        *text = re_after_text.replace_all(text, "").to_string();
                     }
                 };
             };
