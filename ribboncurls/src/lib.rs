@@ -8,6 +8,7 @@ use regex::Regex;
 use serde_yaml::Value;
 use syntax_tree::{create_syntax_tree, SyntaxItem};
 use token::tokenize;
+use utils::{get_newline_variant, get_regex_for_newline, Newline, NewlineRegex};
 
 use crate::utils::escape_html;
 
@@ -30,11 +31,16 @@ struct TokenCtx {
     right_delimiter: String,
 }
 
+struct SyntaxCtx {
+    newline: Newline,
+}
+
 #[derive(Debug)]
 struct RenderCtx {
     data_stack: Vec<Value>,
     partials: Value,
     section_path: Vec<String>,
+    newline: Newline,
 }
 
 pub fn render(
@@ -43,20 +49,21 @@ pub fn render(
     partials: Option<&str>,
 ) -> Result<String, RibboncurlsError> {
     let data_stack = vec![serde_yaml::from_str(data).unwrap_or(Value::String(data.to_string()))];
-
-    let mut render_context = RenderCtx {
-        data_stack,
-        partials: serde_yaml::from_str(partials.unwrap_or("null"))?,
-        section_path: vec![],
-    };
-
     let mut ctx = TokenCtx {
         left_delimiter: DEFAULT_LEFT_DELIMITER.to_string(),
         right_delimiter: DEFAULT_RIGHT_DELIMITER.to_string(),
     };
     let tokens = tokenize(template, &mut ctx)?;
-    let syntax_tree = create_syntax_tree(tokens)?;
-
+    let syntax_ctx = SyntaxCtx {
+        newline: get_newline_variant(template),
+    };
+    let syntax_tree = create_syntax_tree(tokens, syntax_ctx)?;
+    let mut render_context = RenderCtx {
+        data_stack,
+        partials: serde_yaml::from_str(partials.unwrap_or("null"))?,
+        section_path: vec![],
+        newline: get_newline_variant(template),
+    };
     render_syntax_tree(&syntax_tree, &mut render_context)
 }
 
@@ -69,7 +76,10 @@ fn remove_leading_space(output: &mut String) {
 }
 
 fn remove_leading_line_and_space(output: &mut String) {
-    let re = Regex::new(r"\n[ \t]*\z").unwrap();
+    let re = get_regex_for_newline(
+        NewlineRegex::EndsWtihNewlineFollowedByWhitespace,
+        Newline::Lf,
+    );
 
     if re.is_match(output) {
         *output = re.replace_all(output, "").to_string();
@@ -94,8 +104,10 @@ fn render_syntax_tree(
                             text: _,
                             is_standalone,
                         }) => {
-                            if *is_standalone && content.starts_with('\n') {
-                                if let Some(updated_content) = content.strip_prefix('\n') {
+                            if *is_standalone && content.starts_with(ctx.newline.as_str()) {
+                                if let Some(updated_content) =
+                                    content.strip_prefix(ctx.newline.as_str())
+                                {
                                     output.push_str(updated_content);
                                 }
                             } else {
@@ -128,7 +140,10 @@ fn render_syntax_tree(
                     };
                     let partial_tokens =
                         tokenize(partial_data.as_str().unwrap(), &mut token_ctx).expect("waaa");
-                    let tree = create_syntax_tree(partial_tokens)?;
+                    let syntax_ctx = SyntaxCtx {
+                        newline: ctx.newline,
+                    };
+                    let tree = create_syntax_tree(partial_tokens, syntax_ctx)?;
                     let rendered = render_syntax_tree(&tree, ctx)?;
 
                     output.push_str(&rendered);

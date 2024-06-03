@@ -3,7 +3,8 @@ use regex::Regex;
 use super::RibboncurlsError;
 use crate::{
     token::Token,
-    utils::{get_next_item, get_prev_item},
+    utils::{get_next_item, get_prev_item, get_regex_for_newline, NewlineRegex},
+    SyntaxCtx,
 };
 
 #[derive(Debug)]
@@ -28,21 +29,30 @@ pub enum SyntaxItem {
     },
 }
 
-pub fn create_syntax_tree(tokens: Vec<Token>) -> Result<Vec<SyntaxItem>, RibboncurlsError> {
+pub fn create_syntax_tree(
+    tokens: Vec<Token>,
+    ctx: SyntaxCtx,
+) -> Result<Vec<SyntaxItem>, RibboncurlsError> {
     let mut syntax_tree: Vec<SyntaxItem> = Vec::new();
     let mut stack: Vec<SyntaxItem> = vec![];
-    let re_before_text = Regex::new(r"\n[ \t]*\z").unwrap();
-    let re_after_text = Regex::new(r"^\n[ \t]*").unwrap();
+    let re_before_text = get_regex_for_newline(
+        NewlineRegex::EndsWtihNewlineFollowedByWhitespace,
+        ctx.newline,
+    );
+    let re_after_text = get_regex_for_newline(
+        NewlineRegex::StartsWithNewlineFollowedByWhitespace,
+        ctx.newline,
+    );
     // If SyntaxItem::Text whitespace matches it must be index == 0 since all text should start
-    // with '\n' char
+    // with newline str
     let re_whitespace = Regex::new(r"^[ \t]*\z").unwrap();
 
     for (index, token) in tokens.iter().enumerate() {
         match token {
             Token::Text(content) => {
-                let lines: Vec<&str> = content.split('\n').collect();
+                let lines: Vec<&str> = content.split(ctx.newline.as_str()).collect();
                 if let Some((first_line, rest_of_lines)) = lines.split_first() {
-                    // Emtpy if the first char is \n
+                    // Emtpy if starts with newline
                     if !first_line.is_empty() {
                         push_item(
                             &mut syntax_tree,
@@ -52,7 +62,7 @@ pub fn create_syntax_tree(tokens: Vec<Token>) -> Result<Vec<SyntaxItem>, Ribbonc
                     }
 
                     for other_line in rest_of_lines {
-                        let new_content = format!("\n{other_line}");
+                        let new_content = format!("{}{other_line}", ctx.newline.as_str());
                         push_item(
                             &mut syntax_tree,
                             &mut stack,
@@ -210,8 +220,8 @@ pub fn create_syntax_tree(tokens: Vec<Token>) -> Result<Vec<SyntaxItem>, Ribbonc
         }
     }
 
-    set_standalone_to_syntax_items_mut(&mut syntax_tree);
-    clean_up_section_item_spaces_mut(&mut syntax_tree);
+    set_standalone_to_syntax_items_mut(&mut syntax_tree, &ctx);
+    clean_up_section_item_spaces_mut(&mut syntax_tree, &ctx);
 
     Ok(syntax_tree)
 }
@@ -227,9 +237,12 @@ fn push_item(syntax_tree: &mut Vec<SyntaxItem>, stack: &mut [SyntaxItem], item: 
 // Find standalone SyntaxItems and set standalone properties to true
 // A standalone item is any non-SyntaxItem::Text item that is surrounded
 // by new line chars
-fn set_standalone_to_syntax_items_mut(syntax_tree: &mut [SyntaxItem]) {
-    let re_before = Regex::new(r"^\n[ \t]*\z").unwrap();
-    let re_after = Regex::new(r"^\n").unwrap();
+fn set_standalone_to_syntax_items_mut(syntax_tree: &mut [SyntaxItem], ctx: &SyntaxCtx) {
+    let re_before = get_regex_for_newline(
+        NewlineRegex::StartsWithNewlineFollowedByWhitespaceUntilEnd,
+        ctx.newline,
+    );
+    let re_after = get_regex_for_newline(NewlineRegex::StartsWithNewline, ctx.newline);
 
     let empty_line_syntax_item_text_vec = syntax_tree
         .iter()
@@ -292,14 +305,21 @@ fn set_standalone_to_syntax_items_mut(syntax_tree: &mut [SyntaxItem]) {
 // remove the starting and ending newlines and whitespaces accociated with that
 //
 // This strips away the content within the section since that's easier to deal with, even though
-// technically the leading-space following a \n char, section tag and then following newline char
-// is what constitutes a standalone tag. To deal with more easily within ribboncurls, a check is
-// done to determine if the previous char matches `\n[ \t]*\z`. If that's the case it strips away
-// the internal newline and end newline instead of mutating the items around the section.
-fn clean_up_section_item_spaces_mut(syntax_tree: &mut Vec<SyntaxItem>) {
-    let re_before_text = Regex::new(r"^\n[ \t]*\z").unwrap();
+// technically the leading-space following a newline str, section tag and then following newline
+// char is what constitutes a standalone tag. To deal with more easily within ribboncurls, a check
+// is done to determine if the previous char matches `[[\r\n|\n][ \t]*\z`. If that's the case it
+// strips away the internal newline and end newline instead of mutating the items around the
+// section.
+fn clean_up_section_item_spaces_mut(syntax_tree: &mut Vec<SyntaxItem>, ctx: &SyntaxCtx) {
+    let re_before_text = get_regex_for_newline(
+        NewlineRegex::StartsWithNewlineFollowedByWhitespaceUntilEnd,
+        ctx.newline,
+    );
     let re_before_text_last_syntax_item = Regex::new(r"[ \t]*\z").unwrap();
-    let re_after_text = Regex::new(r"^\n[ \t]*").unwrap();
+    let re_after_text = get_regex_for_newline(
+        NewlineRegex::StartsWithNewlineFollowedByWhitespace,
+        ctx.newline,
+    );
 
     // If the first item is only white-space and the second item is standalone, remove the white
     // space
@@ -327,7 +347,7 @@ fn clean_up_section_item_spaces_mut(syntax_tree: &mut Vec<SyntaxItem>) {
             closed_is_standalone,
         } = &mut syntax_tree[i]
         {
-            clean_up_section_item_spaces_mut(items);
+            clean_up_section_item_spaces_mut(items, ctx);
 
             // Strip the last SyntaxItem::Section.items item if it begins
             // with a newline and only contains spaces afterwards
