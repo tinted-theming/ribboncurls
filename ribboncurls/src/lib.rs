@@ -75,11 +75,8 @@ fn remove_leading_space(output: &mut String) {
     }
 }
 
-fn remove_leading_line_and_space(output: &mut String) {
-    let re = get_regex_for_newline(
-        NewlineRegex::EndsWtihNewlineFollowedByWhitespace,
-        Newline::Lf,
-    );
+fn remove_leading_line_and_space(output: &mut String, newline: Newline) {
+    let re = get_regex_for_newline(NewlineRegex::EndsWtihNewlineFollowedByWhitespace, newline);
 
     if re.is_match(output) {
         *output = re.replace_all(output, "").to_string();
@@ -132,7 +129,10 @@ fn render_syntax_tree(
                     output.push_str(&serde_yaml_value_to_string(value));
                 }
             }
-            SyntaxItem::Partial(partial_name) => {
+            SyntaxItem::Partial {
+                name: partial_name,
+                is_standalone: _,
+            } => {
                 if let Some(partial_data) = ctx.partials.clone().get(partial_name) {
                     let mut token_ctx = TokenCtx {
                         left_delimiter: DEFAULT_LEFT_DELIMITER.to_string(),
@@ -165,7 +165,7 @@ fn render_syntax_tree(
                     }
                 } else if let Some(SyntaxItem::Text(_)) = syntax_tree.get(index + 1) {
                     if *is_standalone {
-                        remove_leading_line_and_space(&mut output);
+                        remove_leading_line_and_space(&mut output, ctx.newline);
                     }
                 } else {
                     remove_leading_space(&mut output);
@@ -176,7 +176,7 @@ fn render_syntax_tree(
                     if syntax_tree.len() == index + 1 || index == 1 {
                         remove_leading_space(&mut output);
                     } else {
-                        remove_leading_line_and_space(&mut output);
+                        remove_leading_line_and_space(&mut output, ctx.newline);
                     }
                 }
             }
