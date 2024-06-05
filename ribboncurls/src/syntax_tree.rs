@@ -7,7 +7,7 @@ use crate::{
     SyntaxCtx,
 };
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum SyntaxItem {
     Text(String),
     Variable(String),
@@ -229,6 +229,7 @@ pub fn create_syntax_tree(
     set_standalone_to_syntax_items_mut(&mut syntax_tree, &ctx);
     clean_up_section_item_spaces_mut(&mut syntax_tree, &ctx);
     clean_up_partial_item_spaces_mut(&mut syntax_tree, &ctx);
+    strip_newline_from_standalone_items(&mut syntax_tree, &ctx);
 
     Ok(syntax_tree)
 }
@@ -425,3 +426,29 @@ fn clean_up_partial_item_spaces_mut(syntax_tree: &mut [SyntaxItem], ctx: &Syntax
         }
     }
 }
+
+fn strip_newline_from_standalone_items(syntax_tree: &mut [SyntaxItem], ctx: &SyntaxCtx) {
+    let syntax_tree_clone = syntax_tree.to_vec();
+    for (index, node) in syntax_tree.iter_mut().enumerate() {
+        if let SyntaxItem::Text(content) = node {
+            if ctx.is_root && (index == 1 || index == 2) {
+                match syntax_tree_clone.get(index - 1) {
+                    Some(SyntaxItem::Delimiter { is_standalone }) | Some(SyntaxItem::Comment {
+                        text: _,
+                        is_standalone,
+                    }) => {
+                        if *is_standalone && content.starts_with(ctx.newline.as_str()) {
+                            if let Some(updated_content) =
+                                content.strip_prefix(ctx.newline.as_str())
+                            {
+                                *content = updated_content.to_string();
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+    }
+}
+
