@@ -32,6 +32,7 @@ struct TokenCtx {
 }
 
 struct SyntaxCtx {
+    is_root: bool,
     newline: Newline,
 }
 
@@ -55,6 +56,7 @@ pub fn render(
     };
     let tokens = tokenize(template, &mut ctx)?;
     let syntax_ctx = SyntaxCtx {
+        is_root: true,
         newline: get_newline_variant(template),
     };
     let syntax_tree = create_syntax_tree(tokens, syntax_ctx)?;
@@ -92,32 +94,7 @@ fn render_syntax_tree(
     for (index, node) in syntax_tree.iter().enumerate() {
         match node {
             SyntaxItem::Text(content) => {
-                let is_root = ctx.section_path.is_empty();
-
-                if is_root && (index == 1 || index == 2) {
-                    match syntax_tree.get(index - 1) {
-                        Some(SyntaxItem::Delimiter { is_standalone })
-                        | Some(SyntaxItem::Comment {
-                            text: _,
-                            is_standalone,
-                        }) => {
-                            if *is_standalone && content.starts_with(ctx.newline.as_str()) {
-                                if let Some(updated_content) =
-                                    content.strip_prefix(ctx.newline.as_str())
-                                {
-                                    output.push_str(updated_content);
-                                }
-                            } else {
-                                output.push_str(content.as_str());
-                            }
-                        }
-                        _ => {
-                            output.push_str(content.as_str());
-                        }
-                    }
-                } else {
-                    output.push_str(content.as_str());
-                }
+                output.push_str(content.as_str());
             }
             SyntaxItem::EscapedVariable(content) => {
                 if let Some(value) = get_context_value(ctx, content.as_str()) {
@@ -141,6 +118,7 @@ fn render_syntax_tree(
                     let partial_tokens =
                         tokenize(partial_data.as_str().unwrap(), &mut token_ctx).expect("waaa");
                     let syntax_ctx = SyntaxCtx {
+                        is_root: false,
                         newline: ctx.newline,
                     };
                     let tree = create_syntax_tree(partial_tokens, syntax_ctx)?;
