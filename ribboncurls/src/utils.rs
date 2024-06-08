@@ -1,4 +1,4 @@
-use std::{cmp::Ordering, fmt};
+use std::cmp::Ordering;
 
 use regex::Regex;
 
@@ -10,7 +10,6 @@ pub fn escape_html(input: &str) -> String {
             '<' => output.push_str("&lt;"),
             '>' => output.push_str("&gt;"),
             '"' => output.push_str("&quot;"),
-            '\'' => output.push_str("&#x27;"),
             '/' => output.push_str("&#x2F;"),
             _ => output.push(c),
         }
@@ -60,7 +59,7 @@ impl Newline {
 
 pub enum NewlineRegex {
     StartsWithNewline,
-    EndsWtihNewlineFollowedByWhitespace,
+    EndsWithNewlineFollowedByWhitespace,
     StartsWithNewlineFollowedByWhitespace,
     StartsWithNewlineFollowedByWhitespaceUntilEnd,
 }
@@ -83,7 +82,7 @@ pub fn get_regex_for_newline(newline_regex: NewlineRegex, newline: Newline) -> R
         (NewlineRegex::StartsWithNewline, Newline::Lf) => {
             Regex::new(r"^\n").expect("Unable to get regex")
         }
-        (NewlineRegex::EndsWtihNewlineFollowedByWhitespace, Newline::Lf) => {
+        (NewlineRegex::EndsWithNewlineFollowedByWhitespace, Newline::Lf) => {
             Regex::new(r"\n[ \t]*\z").expect("Unable to get regex")
         }
         (NewlineRegex::StartsWithNewlineFollowedByWhitespace, Newline::Lf) => {
@@ -96,7 +95,7 @@ pub fn get_regex_for_newline(newline_regex: NewlineRegex, newline: Newline) -> R
         (NewlineRegex::StartsWithNewline, Newline::Crlf) => {
             Regex::new(r"^\r\n").expect("Unable to get regex")
         }
-        (NewlineRegex::EndsWtihNewlineFollowedByWhitespace, Newline::Crlf) => {
+        (NewlineRegex::EndsWithNewlineFollowedByWhitespace, Newline::Crlf) => {
             Regex::new(r"\r\n[ \t]*\z").expect("Unable to get regex")
         }
         (NewlineRegex::StartsWithNewlineFollowedByWhitespace, Newline::Crlf) => {

@@ -1,7 +1,7 @@
 use super::RibboncurlsError;
 use super::TokenCtx;
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum Token {
     Text(String),
     Variable(String),

@@ -4,13 +4,10 @@ mod syntax_tree;
 mod token;
 mod utils;
 
-use regex::Regex;
 use serde_yaml::Value;
 use syntax_tree::{create_syntax_tree, SyntaxItem};
 use token::tokenize;
-use utils::{get_newline_variant, get_regex_for_newline, Newline, NewlineRegex};
-
-use crate::utils::escape_html;
+use utils::{escape_html, get_newline_variant, get_regex_for_newline, Newline, NewlineRegex};
 
 const DEFAULT_LEFT_DELIMITER: &str = "{{";
 const DEFAULT_RIGHT_DELIMITER: &str = "}}";
@@ -42,6 +39,7 @@ struct RenderCtx {
     partials: Value,
     section_path: Vec<String>,
     newline: Newline,
+    indent: u8,
 }
 
 pub fn render(
@@ -55,46 +53,62 @@ pub fn render(
         right_delimiter: DEFAULT_RIGHT_DELIMITER.to_string(),
     };
     let tokens = tokenize(template, &mut ctx)?;
-    let syntax_ctx = SyntaxCtx {
+    let mut syntax_ctx = SyntaxCtx {
         is_root: true,
         newline: get_newline_variant(template),
     };
-    let syntax_tree = create_syntax_tree(tokens, syntax_ctx)?;
+    let syntax_tree = create_syntax_tree(tokens, &mut syntax_ctx)?;
     let mut render_context = RenderCtx {
         data_stack,
         partials: serde_yaml::from_str(partials.unwrap_or("null"))?,
         section_path: vec![],
         newline: get_newline_variant(template),
+        indent: 0,
     };
     render_syntax_tree(&syntax_tree, &mut render_context)
-}
-
-fn remove_leading_space(output: &mut String) {
-    let re = Regex::new(r"[ \t]*\z").unwrap();
-
-    if re.is_match(output) {
-        *output = re.replace_all(output, "").to_string();
-    }
-}
-
-fn remove_leading_line_and_space(output: &mut String, newline: Newline) {
-    let re = get_regex_for_newline(NewlineRegex::EndsWtihNewlineFollowedByWhitespace, newline);
-
-    if re.is_match(output) {
-        *output = re.replace_all(output, "").to_string();
-    }
 }
 
 fn render_syntax_tree(
     syntax_tree: &[SyntaxItem],
     ctx: &mut RenderCtx,
 ) -> Result<String, RibboncurlsError> {
+    let re_starts_with_newline_followed_by_whitespace_until_end = get_regex_for_newline(
+        NewlineRegex::StartsWithNewlineFollowedByWhitespaceUntilEnd,
+        ctx.newline,
+    );
     let mut output = String::new();
 
     for (index, node) in syntax_tree.iter().enumerate() {
         match node {
             SyntaxItem::Text(content) => {
-                output.push_str(content.as_str());
+                // Indent if indent exists (for partial)
+                if ctx.indent > 0 {
+                    if let Some(updated) = content.strip_prefix('\n') {
+                        let mut indent_string = String::from('\n');
+
+                        // The standalone partial removes the following newline and the last item
+                        // here replaces that, but it should not contain the indent
+                        if index != syntax_tree.len() - 1
+                            || !re_starts_with_newline_followed_by_whitespace_until_end
+                                .is_match(content)
+                        {
+                            for _ in 0..ctx.indent {
+                                indent_string.push(' ');
+                            }
+                        }
+
+                        output.push_str(format!("{}{}", indent_string, updated).as_str());
+                    } else if index == 0 {
+                        let mut indent_string = String::new();
+                        for _ in 0..ctx.indent {
+                            indent_string.push(' ');
+                        }
+
+                        output.push_str(format!("{}{}", indent_string, content).as_str());
+                    }
+                } else {
+                    output.push_str(content);
+                }
             }
             SyntaxItem::EscapedVariable(content) => {
                 if let Some(value) = get_context_value(ctx, content.as_str()) {
@@ -108,6 +122,7 @@ fn render_syntax_tree(
             }
             SyntaxItem::Partial {
                 name: partial_name,
+                indent,
                 is_standalone: _,
             } => {
                 if let Some(partial_data) = ctx.partials.clone().get(partial_name) {
@@ -117,55 +132,33 @@ fn render_syntax_tree(
                     };
                     let partial_tokens =
                         tokenize(partial_data.as_str().unwrap(), &mut token_ctx).expect("waaa");
-                    let syntax_ctx = SyntaxCtx {
+                    let mut syntax_ctx = SyntaxCtx {
                         is_root: false,
                         newline: ctx.newline,
                     };
-                    let tree = create_syntax_tree(partial_tokens, syntax_ctx)?;
+                    let original_indent = ctx.indent;
+                    ctx.indent = *indent;
+                    let tree = create_syntax_tree(partial_tokens, &mut syntax_ctx)?;
                     let rendered = render_syntax_tree(&tree, ctx)?;
+                    ctx.indent = original_indent;
 
                     output.push_str(&rendered);
                 }
             }
             SyntaxItem::Comment {
                 text: _,
-                is_standalone,
-            } => {
-                let is_root = ctx.section_path.is_empty();
-
-                if index == 1 && is_root {
-                    if let Some(SyntaxItem::Text(text_content)) = syntax_tree.first() {
-                        let re = Regex::new(r"^[ \t]*\z").unwrap();
-
-                        if re.is_match(text_content) {
-                            output = String::new();
-                        }
-                    }
-                } else if let Some(SyntaxItem::Text(_)) = syntax_tree.get(index + 1) {
-                    if *is_standalone {
-                        remove_leading_line_and_space(&mut output, ctx.newline);
-                    }
-                } else {
-                    remove_leading_space(&mut output);
-                }
-            }
-            SyntaxItem::Delimiter { is_standalone } => {
-                if *is_standalone {
-                    if syntax_tree.len() == index + 1 || index == 1 {
-                        remove_leading_space(&mut output);
-                    } else {
-                        remove_leading_line_and_space(&mut output, ctx.newline);
-                    }
-                }
-            }
+                is_standalone: _,
+            } => {}
+            SyntaxItem::Delimiter { is_standalone: _ } => {}
             SyntaxItem::Section {
                 name,
                 items,
-                inverted,
+                is_inverted,
                 open_is_standalone: _,
                 closed_is_standalone: _,
             } => {
                 ctx.section_path.push(name.to_string());
+
                 let mut section_value_option = None;
                 let mut is_mutating_context_stack = false;
                 let mut iterator_option: Option<Value> = None;
@@ -182,13 +175,13 @@ fn render_syntax_tree(
                     }
                 }
 
-                // TODO: remove duplicate code
                 // Iterate and render over the sequence
-                match (iterator_option, inverted) {
+                match (iterator_option, is_inverted) {
                     (Some(Value::Sequence(section_value)), false) => {
                         for item in section_value {
                             ctx.data_stack.push(item);
-                            match (&section_value_option, inverted) {
+
+                            match (&section_value_option, is_inverted) {
                                 (Some(value), false) => {
                                     if is_value_truthy(value) {
                                         let section_output = render_syntax_tree(items, ctx)?;
@@ -215,7 +208,7 @@ fn render_syntax_tree(
                         }
                     }
                     // Otherwise render without iteration
-                    _ => match (section_value_option, inverted) {
+                    _ => match (section_value_option, is_inverted) {
                         (Some(value), false) => {
                             if is_value_truthy(&value) {
                                 let section_output = render_syntax_tree(items, ctx)?;
