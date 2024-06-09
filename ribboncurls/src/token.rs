@@ -50,6 +50,21 @@ pub fn tokenize(template: &str, ctx: &mut TokenCtx) -> Result<Vec<Token>, Ribbon
                     let content = &template[start_index..end];
 
                     if let Ok(token) = parse_tag(content, ctx) {
+                        if let Token::OpenSection(_) = token {
+                            ctx.section_stack.push(token.clone());
+                        }
+                        if let Token::CloseSection(ref close_section_name) = token {
+                            if let Some(Token::OpenSection(open_section_name)) =
+                                ctx.section_stack.last()
+                            {
+                                if close_section_name == open_section_name {
+                                    ctx.section_stack.pop();
+                                } else {
+                                    return Err(RibboncurlsError::MissingEndTag);
+                                }
+                            }
+                        }
+
                         tokens.push(token);
                     }
                 }

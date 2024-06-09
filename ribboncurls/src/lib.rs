@@ -6,7 +6,7 @@ mod utils;
 
 use serde_yaml::Value;
 use syntax_tree::{create_syntax_tree, SyntaxItem};
-use token::tokenize;
+use token::{tokenize, Token};
 use utils::{escape_html, get_newline_variant, get_regex_for_newline, Newline, NewlineRegex};
 
 const DEFAULT_LEFT_DELIMITER: &str = "{{";
@@ -30,6 +30,7 @@ pub enum RibboncurlsError {
 struct TokenCtx {
     left_delimiter: String,
     right_delimiter: String,
+    section_stack: Vec<Token>,
 }
 
 struct SyntaxCtx {
@@ -55,6 +56,7 @@ pub fn render(
     let mut ctx = TokenCtx {
         left_delimiter: DEFAULT_LEFT_DELIMITER.to_string(),
         right_delimiter: DEFAULT_RIGHT_DELIMITER.to_string(),
+        section_stack: Vec::new(),
     };
     let tokens = tokenize(template, &mut ctx)?;
     let mut syntax_ctx = SyntaxCtx {
@@ -133,6 +135,7 @@ fn render_syntax_tree(
                     let mut token_ctx = TokenCtx {
                         left_delimiter: DEFAULT_LEFT_DELIMITER.to_string(),
                         right_delimiter: DEFAULT_RIGHT_DELIMITER.to_string(),
+                        section_stack: Vec::new(),
                     };
                     let partial_tokens =
                         tokenize(partial_data.as_str().unwrap(), &mut token_ctx).expect("waaa");
@@ -263,7 +266,10 @@ fn serde_yaml_value_to_string(value: &Value) -> String {
     }
 }
 
-fn get_context_value<'a>(ctx: &'a RenderCtx, path: &str) -> Result<Option<&'a Value>, RibboncurlsError> {
+fn get_context_value<'a>(
+    ctx: &'a RenderCtx,
+    path: &str,
+) -> Result<Option<&'a Value>, RibboncurlsError> {
     let context_stack = &ctx.data_stack;
 
     if path.is_empty() || ctx.data_stack.is_empty() {
