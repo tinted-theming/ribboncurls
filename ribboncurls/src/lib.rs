@@ -324,11 +324,15 @@ fn get_context_value<'a>(ctx: &'a RenderCtx, path: &str) -> Option<&'a Value> {
             return Some(value);
         } else {
             // Search for values from the furthest section back to the root
-            for part_index_rev in 0..parts.len() {
-                let part_index = parts.len() - (part_index_rev + 1);
-
-                if let Some(value) = get_value(context, parts[part_index]) {
-                    return Some(value);
+            for index_outer in (0..parts.len()).rev() {
+                if let Some(Value::Mapping(_)) = get_value(context, parts[index_outer]) {
+                    return get_value(context, parts[index_outer]);
+                } else {
+                    for index_inner in (index_outer + 1..parts.len()).rev() {
+                        if let Some(value) = context.get(&parts[index_inner..].join(".")) {
+                            return Some(value);
+                        }
+                    }
                 }
             }
         }
