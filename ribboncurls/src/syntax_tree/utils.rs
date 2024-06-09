@@ -14,10 +14,10 @@ pub fn cleanup_syntax_item_text_newline_and_spacing(
     let mut syntax_text_items_to_remove: Vec<usize> = vec![];
     let mut syntax_item_newlines_to_remove: Vec<usize> = vec![];
     let mut syntax_items_remove_ending_whitespace: Vec<usize> = vec![];
-    let re_before_text_last_syntax_item = Regex::new(r"[ \t]*\z").unwrap();
+    let re_before_text_last_syntax_item = Regex::new(r"[ \t]*\z").expect("Unable to get regex");
     let re_newline = get_regex_for_newline(NewlineRegex::StartsWithNewline, ctx.newline);
-    let re_empty_line = Regex::new(r"^\s*\z").unwrap();
-    let re_ending_whitespace = Regex::new(r"[ \t]*\z").unwrap();
+    let re_empty_line = Regex::new(r"^\s*\z").expect("Unable to get regex");
+    let re_ending_whitespace = Regex::new(r"[ \t]*\z").expect("Unable to get regex");
 
     for (index, node) in syntax_tree.iter_mut().enumerate() {
         match node {

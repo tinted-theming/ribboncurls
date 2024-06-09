@@ -53,7 +53,7 @@ pub fn create_syntax_tree(
     );
     // If SyntaxItem::Text whitespace matches it must be index == 0 since all text should start
     // with newline str
-    let re_whitespace = Regex::new(r"^[ \t]*\z").unwrap();
+    let re_whitespace = Regex::new(r"^[ \t]*\z").expect("Unable to get regex");
     let tokens_clone = tokens.clone();
 
     for (index, token) in tokens.iter().enumerate() {
@@ -316,7 +316,7 @@ fn get_is_standalone(tokens: &[Token], index: usize, ctx: &SyntaxCtx) -> bool {
         NewlineRegex::StartsWithNewlineFollowedByWhitespace,
         ctx.newline,
     );
-    let re_whitespace = Regex::new(r"^[ \t]*\z").unwrap();
+    let re_whitespace = Regex::new(r"^[ \t]*\z").expect("Unable to get regex");
 
     match (get_prev_item(tokens, index), get_next_item(tokens, index)) {
         (None, Some(Token::Text(after_text))) => {
