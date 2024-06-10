@@ -166,85 +166,100 @@ fn render_syntax_tree(
                 open_is_standalone: _,
                 closed_is_standalone: _,
             } => {
-                ctx.section_path.push(name.to_string());
+                // Sequence of sequences
+                // ---------------------
+                // A sequence of sequences behaves differently the the rest of the sections, so if
+                // it matches, render and continue
+                if let Some(sequence_output) =
+                    render_sequence_of_sequences(name.to_string(), ctx, items)?
+                {
+                    output.push_str(&sequence_output);
+                } else {
+                    // All other sections
+                    // ------------------
+                    ctx.section_path.push(name.to_string());
 
-                let mut section_value_option = None;
-                let mut is_mutating_context_stack = false;
-                let mut iterator_option: Option<Value> = None;
+                    let mut section_value_option = None;
+                    let mut is_mutating_context_stack = false;
+                    let mut iterator_option: Option<Value> = None;
 
-                // Add section context to the ctx.data_stack
-                if let Some(section_value) = get_context_value(ctx, &ctx.section_path.join("."))? {
-                    section_value_option = Some(section_value.clone());
-                    if matches!(section_value, Value::Mapping(_)) {
-                        ctx.data_stack.push(section_value.clone());
+                    // Add section context to the ctx.data_stack
+                    if let Some(section_value) =
+                        get_context_value(ctx, &ctx.section_path.join("."))?
+                    {
+                        section_value_option = Some(section_value.clone());
+                        if matches!(section_value, Value::Mapping(_)) {
+                            ctx.data_stack.push(section_value.clone());
 
-                        is_mutating_context_stack = true;
-                    } else if matches!(section_value, Value::Sequence(_)) {
-                        iterator_option = Some(section_value.clone());
+                            is_mutating_context_stack = true;
+                        } else if matches!(section_value, Value::Sequence(_)) {
+                            iterator_option = Some(section_value.clone());
+                        }
                     }
-                }
 
-                // Iterate and render over the sequence
-                match (iterator_option, is_inverted) {
-                    (Some(Value::Sequence(section_value)), false) => {
-                        for item in section_value {
-                            ctx.data_stack.push(item);
+                    // Iterate and render over the sequence
+                    match (iterator_option, is_inverted) {
+                        (Some(Value::Sequence(section_value)), false) => {
+                            for item in section_value {
+                                ctx.data_stack.push(item);
 
-                            match (&section_value_option, is_inverted) {
-                                (Some(value), false) => {
-                                    if is_value_truthy(value) {
-                                        let section_output = render_syntax_tree(items, ctx)?;
+                                match (&section_value_option, is_inverted) {
+                                    (Some(value), false) => {
+                                        if is_value_truthy(value) {
+                                            let section_output = render_syntax_tree(items, ctx)?;
 
-                                        output.push_str(&section_output);
-                                    };
-                                }
-                                (None, true) => {
-                                    let section_output = render_syntax_tree(items, ctx)?;
-
-                                    output.push_str(&section_output);
-                                }
-                                (Some(value), true) => {
-                                    if is_value_falsy(value) && !matches!(value, Value::Mapping(_))
-                                    {
+                                            output.push_str(&section_output);
+                                        };
+                                    }
+                                    (None, true) => {
                                         let section_output = render_syntax_tree(items, ctx)?;
 
                                         output.push_str(&section_output);
                                     }
+                                    (Some(value), true) => {
+                                        if is_value_falsy(value)
+                                            && !matches!(value, Value::Mapping(_))
+                                        {
+                                            let section_output = render_syntax_tree(items, ctx)?;
+
+                                            output.push_str(&section_output);
+                                        }
+                                    }
+                                    (None, false) => {}
                                 }
-                                (None, false) => {}
+                                ctx.data_stack.pop();
                             }
-                            ctx.data_stack.pop();
                         }
+                        // Otherwise render without iteration
+                        _ => match (section_value_option, is_inverted) {
+                            (Some(value), false) => {
+                                if is_value_truthy(&value) {
+                                    let section_output = render_syntax_tree(items, ctx)?;
+
+                                    output.push_str(&section_output);
+                                };
+                            }
+                            (None, true) => {
+                                let section_output = render_syntax_tree(items, ctx)?;
+
+                                output.push_str(&section_output);
+                            }
+                            (Some(value), true) => {
+                                if is_value_falsy(&value) {
+                                    let section_output = render_syntax_tree(items, ctx)?;
+
+                                    output.push_str(&section_output);
+                                }
+                            }
+                            (None, false) => {}
+                        },
+                    };
+
+                    if is_mutating_context_stack {
+                        ctx.data_stack.pop();
                     }
-                    // Otherwise render without iteration
-                    _ => match (section_value_option, is_inverted) {
-                        (Some(value), false) => {
-                            if is_value_truthy(&value) {
-                                let section_output = render_syntax_tree(items, ctx)?;
-
-                                output.push_str(&section_output);
-                            };
-                        }
-                        (None, true) => {
-                            let section_output = render_syntax_tree(items, ctx)?;
-
-                            output.push_str(&section_output);
-                        }
-                        (Some(value), true) => {
-                            if is_value_falsy(&value) {
-                                let section_output = render_syntax_tree(items, ctx)?;
-
-                                output.push_str(&section_output);
-                            }
-                        }
-                        (None, false) => {}
-                    },
-                };
-
-                if is_mutating_context_stack {
-                    ctx.data_stack.pop();
+                    ctx.section_path.pop();
                 }
-                ctx.section_path.pop();
             }
         };
     }
@@ -397,4 +412,36 @@ fn is_value_falsy(value: &Value) -> bool {
 
 fn is_value_truthy(value: &Value) -> bool {
     !is_value_falsy(value)
+}
+
+fn render_sequence_of_sequences(
+    name: String,
+    ctx: &mut RenderCtx,
+    items: &[SyntaxItem],
+) -> Result<Option<String>, RibboncurlsError> {
+    let mut value = String::new();
+    if name == "." {
+        if let Some(Value::Sequence(sequence)) = ctx.data_stack.last() {
+            let sequence_clone = sequence.clone();
+            for item in sequence_clone {
+                let meh = item.clone();
+                let name = serde_yaml_value_to_string(&item);
+                ctx.section_path.push(name);
+                ctx.data_stack.push(meh);
+                if is_value_truthy(&item) {
+                    let section_output = render_syntax_tree(items, ctx)?;
+
+                    value.push_str(&section_output);
+                };
+                ctx.data_stack.pop();
+                ctx.section_path.pop();
+            }
+        };
+    };
+
+    if value.is_empty() {
+        Ok(None)
+    } else {
+        Ok(Some(value))
+    }
 }
