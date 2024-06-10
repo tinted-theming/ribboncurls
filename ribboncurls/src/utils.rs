@@ -10,7 +10,6 @@ pub fn escape_html(input: &str) -> String {
             '<' => output.push_str("&lt;"),
             '>' => output.push_str("&gt;"),
             '"' => output.push_str("&quot;"),
-            '/' => output.push_str("&#x2F;"),
             _ => output.push(c),
         }
     }
