@@ -21,6 +21,8 @@ pub enum RibboncurlsError {
     MissingEndTag,
     #[error("missing data")]
     MissingData,
+    #[error("string too large")]
+    StringSize,
     #[error("bad tag")]
     BadTag,
     #[error("bad input")]

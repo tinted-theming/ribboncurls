@@ -1,15 +1,12 @@
 use regex::Regex;
 
-use super::SyntaxItem;
-use crate::{
-    utils::{get_next_item, get_prev_item, get_regex_for_newline, NewlineRegex},
-    SyntaxCtx,
-};
+use super::{RibboncurlsError, SyntaxCtx, SyntaxItem};
+use crate::utils::{get_next_item, get_prev_item, get_regex_for_newline, NewlineRegex};
 
 pub fn cleanup_syntax_item_text_newline_and_spacing(
     syntax_tree: &mut Vec<SyntaxItem>,
     ctx: &SyntaxCtx,
-) {
+) -> Result<(), RibboncurlsError> {
     let syntax_tree_clone = syntax_tree.clone();
     let mut syntax_text_items_to_remove: Vec<usize> = vec![];
     let mut syntax_item_newlines_to_remove: Vec<usize> = vec![];
@@ -18,6 +15,7 @@ pub fn cleanup_syntax_item_text_newline_and_spacing(
     let re_newline = get_regex_for_newline(NewlineRegex::StartsWithNewline, ctx.newline);
     let re_empty_line = Regex::new(r"^\s*\z").expect("Unable to get regex");
     let re_ending_whitespace = Regex::new(r"[ \t]*\z").expect("Unable to get regex");
+    let re_whitespace = Regex::new(r"^[ \t]*\z").expect("Unable to get regex");
 
     for (index, node) in syntax_tree.iter_mut().enumerate() {
         match node {
@@ -41,20 +39,28 @@ pub fn cleanup_syntax_item_text_newline_and_spacing(
                 }
             }
             SyntaxItem::Partial {
-                indent: _,
+                indent,
                 is_standalone,
                 name: _,
             } => {
                 if *is_standalone {
                     if let Some(SyntaxItem::Text(text)) = get_prev_item(&syntax_tree_clone, index) {
+                        let prev_index = index - 1;
+
+                        if prev_index == 0 && re_whitespace.is_match(text) {
+                            *indent = convert_usize_to_u8(text.len())?;
+                        }
+
                         if re_ending_whitespace.is_match(text) {
-                            syntax_items_remove_ending_whitespace.push(index - 1);
+                            syntax_items_remove_ending_whitespace.push(prev_index);
                         }
                     }
 
                     if let Some(SyntaxItem::Text(text)) = get_next_item(&syntax_tree_clone, index) {
+                        let next_index = index + 1;
+
                         if re_before_text_last_syntax_item.is_match(text) {
-                            syntax_item_newlines_to_remove.push(index + 1);
+                            syntax_item_newlines_to_remove.push(next_index);
                         }
                     }
                 }
@@ -71,7 +77,7 @@ pub fn cleanup_syntax_item_text_newline_and_spacing(
                     newline: ctx.newline,
                     is_root: false,
                 };
-                cleanup_syntax_item_text_newline_and_spacing(items, &section_ctx);
+                cleanup_syntax_item_text_newline_and_spacing(items, &section_ctx)?;
 
                 // Strip the last SyntaxItem::Section.items item if it begins
                 // with a newline and only contains spaces afterwards
@@ -89,8 +95,7 @@ pub fn cleanup_syntax_item_text_newline_and_spacing(
                     }
                 }
 
-                // remove following newline and remove space before
-
+                // Remove following newline and remove space before
                 if *open_is_standalone {
                     // When the first SyntaxItem is a section, strip the leading newline and spaces
                     // within the SyntaxItem::Section.items
@@ -138,5 +143,16 @@ pub fn cleanup_syntax_item_text_newline_and_spacing(
         if syntax_tree.get(*index).is_some() {
             syntax_tree.remove(*index);
         }
+    }
+
+    Ok(())
+}
+
+fn convert_usize_to_u8(val: usize) -> Result<u8, RibboncurlsError> {
+    if val <= u8::MAX as usize {
+        println!("should be ok");
+        Ok(val as u8)
+    } else {
+        Err(RibboncurlsError::StringSize)
     }
 }

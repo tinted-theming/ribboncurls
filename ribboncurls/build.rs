@@ -59,7 +59,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             };
             let expected = test.expected;
             let ignored = match (mod_name.as_ref(), name.as_ref()) {
-                ("partials", "standalone_indentation") => "\n            #[ignore]",
+                ("sections", "implicit_iterator_array") => "\n            #[ignore]",
                 _ => "",
             };
 

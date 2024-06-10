@@ -243,7 +243,7 @@ pub fn create_syntax_tree(
         }
     }
 
-    cleanup_syntax_item_text_newline_and_spacing(&mut syntax_tree, ctx);
+    cleanup_syntax_item_text_newline_and_spacing(&mut syntax_tree, ctx)?;
 
     Ok(syntax_tree)
 }
