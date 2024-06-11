@@ -2,7 +2,7 @@ use super::RibboncurlsError;
 use super::TokenCtx;
 
 #[derive(Clone, Debug)]
-pub enum Token {
+pub(crate) enum Token {
     Text(String),
     Variable(String),
     EscapedVariable(String),

@@ -12,7 +12,7 @@ use crate::{
 };
 
 #[derive(Clone, Debug)]
-pub enum SyntaxItem {
+pub(crate) enum SyntaxItem {
     Text(String),
     Variable(String),
     EscapedVariable(String),
@@ -36,7 +36,7 @@ pub enum SyntaxItem {
     },
 }
 
-pub fn create_syntax_tree(
+pub(crate) fn create_syntax_tree(
     tokens: Vec<Token>,
     ctx: &mut SyntaxCtx,
 ) -> Result<Vec<SyntaxItem>, RibboncurlsError> {

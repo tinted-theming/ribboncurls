@@ -2,7 +2,7 @@ use std::cmp::Ordering;
 
 use regex::Regex;
 
-pub fn escape_html(input: &str) -> String {
+pub(crate) fn escape_html(input: &str) -> String {
     let mut output = String::with_capacity(input.len() * 2);
     for c in input.chars() {
         match c {
@@ -18,7 +18,7 @@ pub fn escape_html(input: &str) -> String {
     output
 }
 
-pub fn get_prev_item<T>(data: &[T], index: usize) -> Option<&T> {
+pub(crate) fn get_prev_item<T>(data: &[T], index: usize) -> Option<&T> {
     if index > 0 {
         data.get(index - 1)
     } else {
@@ -26,7 +26,7 @@ pub fn get_prev_item<T>(data: &[T], index: usize) -> Option<&T> {
     }
 }
 
-pub fn get_next_item<T>(data: &[T], index: usize) -> Option<&T> {
+pub(crate) fn get_next_item<T>(data: &[T], index: usize) -> Option<&T> {
     if index < data.len() - 1 {
         data.get(index + 1)
     } else {
@@ -35,20 +35,20 @@ pub fn get_next_item<T>(data: &[T], index: usize) -> Option<&T> {
 }
 
 #[derive(Clone, Copy, Debug)]
-pub enum Newline {
+pub(crate) enum Newline {
     Crlf,
     Lf,
 }
 
 impl Newline {
-    pub fn as_str(self) -> &'static str {
+    pub(crate) fn as_str(self) -> &'static str {
         match self {
             Newline::Lf => "\n",
             Newline::Crlf => "\r\n",
         }
     }
 
-    pub fn to_regex(self) -> Regex {
+    pub(crate) fn to_regex(self) -> Regex {
         match self {
             Newline::Lf => Regex::new(r"\n").expect("Unable to get regex for '\\n'"),
             Newline::Crlf => Regex::new(r"\r\n").expect("Unable to get regex for '\\r\\n'"),
@@ -56,14 +56,14 @@ impl Newline {
     }
 }
 
-pub enum NewlineRegex {
+pub(crate) enum NewlineRegex {
     StartsWithNewline,
     EndsWithNewlineFollowedByWhitespace,
     StartsWithNewlineFollowedByWhitespace,
     StartsWithNewlineFollowedByWhitespaceUntilEnd,
 }
 
-pub fn get_newline_variant(text: &str) -> Newline {
+pub(crate) fn get_newline_variant(text: &str) -> Newline {
     let re_crlf = Newline::Crlf.to_regex();
     let re_lf = Newline::Lf.to_regex();
 
@@ -76,7 +76,7 @@ pub fn get_newline_variant(text: &str) -> Newline {
     }
 }
 
-pub fn get_regex_for_newline(newline_regex: NewlineRegex, newline: Newline) -> Regex {
+pub(crate) fn get_regex_for_newline(newline_regex: NewlineRegex, newline: Newline) -> Regex {
     match (newline_regex, newline) {
         (NewlineRegex::StartsWithNewline, Newline::Lf) => {
             Regex::new(r"^\n").expect("Unable to get regex")

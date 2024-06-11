@@ -3,7 +3,7 @@ use regex::Regex;
 use super::{RibboncurlsError, SyntaxCtx, SyntaxItem};
 use crate::utils::{get_next_item, get_prev_item, get_regex_for_newline, NewlineRegex};
 
-pub fn cleanup_syntax_item_text_newline_and_spacing(
+pub(crate) fn cleanup_syntax_item_text_newline_and_spacing(
     syntax_tree: &mut Vec<SyntaxItem>,
     ctx: &SyntaxCtx,
 ) -> Result<(), RibboncurlsError> {
