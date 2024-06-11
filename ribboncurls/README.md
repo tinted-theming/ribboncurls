@@ -6,6 +6,10 @@
     alt="Ribboncurls logo" height="481 width="800" />
 </p>
 
+[![Matrix Chat](https://img.shields.io/matrix/tinted-theming:matrix.org)](https://matrix.to/#/#tinted-theming:matrix.org)
+[![Crates.io](https://img.shields.io/crates/v/ribboncurls.svg)](https://crates.io/crates/ribboncurls)
+[![Tests](https://github.com/tinted-theming/ribboncurls/actions/workflows/ci.yml/badge.svg)](https://github.com/tinted-theming/ribboncurls/actions/workflows/ci.yml)
+
 Ribboncurls is a Rust library for rendering [mustache] templates.
 
 It currently passes 132 of the 133 tests in the [mustache v1.4.1 spec]
