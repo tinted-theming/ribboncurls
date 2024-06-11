@@ -5,77 +5,102 @@ on:
       - "cli-v*.*.*"
 permissions:
   contents: write
-
 jobs:
-  publish_dryrun:
+  setup-environment:
     runs-on: ubuntu-latest
     outputs:
       cargo_version: ${{ steps.cargo_version.outputs.value }}
+      cargo_cache_key: ${{ steps.cargo_cache_key.outputs.value }}
     steps:
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
-        with: 
-          components: rustfmt
-
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 1
           ref: ${{ github.ref }}
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
 
-      - name: Setup Rust toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
+      - name: Set cargo cache key
+        id: cargo_cache_key
+        run: |
+          CARGO_CACHE_KEY="${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}"
+          echo "value=$CARGO_CACHE_KEY" >> $GITHUB_OUTPUT
 
-      - name: Cache Cargo registry and binaries
-        uses: actions/cache@v4
+      - uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
             target
             ~/.cargo/bin
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}-${{ hashFiles('**/rust-toolchain') }}
-        id: cache-cargo-release
-
-      - name: Install deps
-        run: |
-          if ! command -v jq &> /dev/null; then
-            if [[ "$RUNNER_OS" == "Linux" ]]; then
-              sudo apt-get update
-              sudo apt-get install -y jq
-            elif [[ "$RUNNER_OS" == "macOS" ]]; then
-              brew install jq
-            fi
-          fi
-          if ! command -v cargo-deny &> /dev/null; then
-            cargo install --locked cargo-deny
-          fi
-        env:
-          RUNNER_OS: ${{ runner.os }}
+          key: ${{ steps.cargo_cache_key.outputs.value }}
+          id: cache-cargo-release
 
       - name: Get Cargo version
         id: cargo_version
         run: |
-          VERSION=$(cargo read-manifest --manifest-path ./ribboncurls/Cargo.toml | jq -r ".version")
-          echo "value=$VERSION" >> $GITHUB_ENV
-          echo "::set-output name=value::$VERSION"
+          VERSION=$(cargo read-manifest --manifest-path ./ribboncurls-cli/Cargo.toml | jq -r ".version")
+          echo "value=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Abort if there is a Cargo.toml and git tag mismatch
         run: |
-          if [[ "cli-v${{ steps.cargo_version.outputs.value }}" != "${{ github.ref_name }}" ]]; then
+          if [[ "v${{ steps.cargo_version.outputs.value }}" != "${{ github.ref_name }}" ]]; then
+            echo "There is a Cargo.toml version and git tag mismatch." && exit 1;
+          fi
+
+  check-msrv:
+    uses: ./.github/workflows/msrv.yml
+
+  lint:
+    needs: setup-environment
+    uses: ./.github/workflows/lint.yml
+    with:
+      cache-key: ${{ needs.setup-environment.outputs.cargo_cache_key }}
+
+  test:
+    needs: setup-environment
+    uses: ./.github/workflows/test.yml
+    with:
+      cache-key: ${{ needs.setup-environment.outputs.cargo_cache_key }}
+
+  publish-dry-run:
+    needs: [setup-environment]
+    runs-on: ubuntu-latest
+    env:
+      CARGO_CACHE_KEY: ${{ needs.setup-environment.outputs.cargo_cache_key }}
+      CARGO_VERSION: ${{ needs.setup-environment.outputs.cargo_version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+            ~/.cargo/bin
+          key: ${{ env.CARGO_CACHE_KEY }}
+          id: cache-cargo-test
+
+      - name: Abort if there is a Cargo.toml and git tag mismatch
+        run: |
+          if [[ "cli-v${{ env.CARGO_VERSION }}" != "${{ github.ref_name }}" ]]; then
             echo "There is a Cargo.toml version and git tag mismatch." && exit 1;
           fi
 
       - name: Attempt a publish dryrun
         run: |
-          cargo publish --dry-run -p ribboncurls
+          cargo publish --dry-run -p ribboncurls-cli
 
+  create-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: taiki-e/create-gh-release-action@v1
+        with:
+          changelog: CHANGELOG.md
+          token: ${{ secrets.GITHUB_TOKEN }}
 
   release:
-    needs: publish_dryrun
+    needs: [publish-dry-run]
     name: ${{ matrix.target }}
     runs-on: ${{ matrix.os }}
     strategy:
@@ -86,92 +111,26 @@ jobs:
             target: x86_64-unknown-linux-gnu
             os: ubuntu-latest
             cross: false
-            deb: false
           - prefix: i686-linux
             target: i686-unknown-linux-gnu
             os: ubuntu-latest
             cross: true
-            deb: true
           - prefix: aarch64-linux
             target: aarch64-unknown-linux-gnu
             os: ubuntu-latest
             cross: true
-            deb: true
           - os: macos-11
             target: x86_64-apple-darwin
             cross: true
-            deb: false
           - os: macos-11
             target: aarch64-apple-darwin
             cross: true
-            deb: false
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+      - uses: taiki-e/upload-rust-binary-action@v1
         with:
-          fetch-depth: 1
-          ref: ${{ github.ref }}
-
-      - name: Install Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          profile: minimal
-          override: true
+          bin: ribboncurls
           target: ${{ matrix.target }}
-
-      - name: Setup cache
-        uses: Swatinem/rust-cache@v2.7.3
-        with:
-          key: ${{ matrix.target }}
-
-      - name: Build binary
-        uses: actions-rs/cargo@v1
-        with:
-          use-cross: ${{ matrix.cross }}
-          command: build
-          args: -p ribboncurls --release --locked --target=${{ matrix.target }} --color=always --verbose
-
-      - name: Install cargo-deb
-        if: ${{ matrix.deb == true }}
-        uses: actions-rs/install@v0.1
-        with:
-          crate: cargo-deb
-
-      - name: Build deb
-        if: ${{ matrix.deb == true }}
-        uses: actions-rs/cargo@v1
-        with:
-          command: deb
-          args: -p ribboncurls --no-build --no-strip --output=. --target=${{ matrix.target }}
-
-      - name: Package
-        shell: bash
-        run: |
-          files="example.toml THIRD_PARTY_LICENSES.md LICENSE-APACHE LICENSE-MIT README.md"
-          $GITHUB_WORKSPACE/scripts/package_build \
-            "THIRD_PARTY_LICENSES.md LICENSE-APACHE LICENSE-MIT README.md" \
-            "${{ matrix.target }}" \
-            "$GITHUB_WORKSPACE" \
-            "${{ steps.cargo_version.outputs.value }}"
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.target }}
-          path: |
-            *.deb
-            *.tar.gz
-            *.sha256
-
-      - name: Create release
-        uses: softprops/action-gh-release@v1
-        with:
-          files: |
-            build/*.deb
-            build/*.tar.gz
-            build/*.sha256
-          tag_name: ${{ github.ref_name }}
-          name: Release ${{ steps.cargo_version.outputs.value }}
-          draft: true
+          tar: unix
+          zip: windows
+          token: ${{ secrets.GITHUB_TOKEN }}
