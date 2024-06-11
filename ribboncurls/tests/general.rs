@@ -187,3 +187,16 @@ fn contextual_data_from_parents() {
 
     assert_eq!(template, "Tinted's parent is Theming.");
 }
+
+#[test]
+fn data_with_nested_sections() {
+    let template = "{{#a}}{{#b}}{{#c}}{{.}}{{/c}}{{/b}}{{/a}}";
+    let data = r#"
+        a: true
+        b: 0
+        c: Tinted Theming!
+    "#;
+    let template = ribboncurls::render(template, data, None).unwrap();
+
+    assert_eq!(template, "Tinted Theming!");
+}

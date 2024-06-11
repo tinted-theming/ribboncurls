@@ -341,23 +341,22 @@ fn get_context_value<'a>(
 
     // Check for partial path matches on property names
     for context in context_stack[context_stack_start_index..].iter().rev() {
-        if context.get(path).is_some() {
-            return Ok(context.get(path));
-        } else if let Some(value) = get_value(context, &parts.join(".")) {
+        // Return if there is a perfect match
+        if let Some(value) = get_value(context, &parts.join(".")) {
             return Ok(Some(value));
-        } else {
-            // Search for values from the furthest section back to the root
-            for index_outer in (0..parts.len()).rev() {
-                let value_option = get_value(context, parts[index_outer]);
-                match value_option {
-                    Some(Value::Mapping(_)) | Some(Value::Sequence(_)) => {
-                        return Ok(value_option);
-                    }
-                    _ => {
-                        for index_inner in (index_outer + 1..parts.len()).rev() {
-                            if let Some(value) = context.get(&parts[index_inner..].join(".")) {
-                                return Ok(Some(value));
-                            }
+        }
+
+        // Search for values from the top of the section stack back to the bottom
+        for index_outer in (0..parts.len()).rev() {
+            let value_option = get_value(context, parts[index_outer]);
+            match value_option {
+                Some(Value::Mapping(_)) | Some(Value::Sequence(_)) => {
+                    return Ok(value_option);
+                }
+                _ => {
+                    for index_inner in (index_outer + 1..parts.len()).rev() {
+                        if let Some(value) = context.get(&parts[index_inner..].join(".")) {
+                            return Ok(Some(value));
                         }
                     }
                 }
@@ -395,7 +394,7 @@ fn get_value<'a>(data: &'a Value, path: &str) -> Option<&'a Value> {
                 None
             }
         }
-        _ => Some(&Value::Null),
+        _ => None,
     }
 }
 
