@@ -4,8 +4,8 @@ This page lists the licenses of the projects used in cargo-about.
     
 ## Overview of licenses
 
-- Apache License 2.0 (26)
-- MIT License (4)
+- Apache License 2.0 (29)
+- MIT License (8)
 - Unicode License Agreement - Data Files and Software (2016) (1)
 
 ## All license text
@@ -438,8 +438,8 @@ This page lists the licenses of the projects used in cargo-about.
 #### Used by
 
 - [anstream 0.6.13](https://github.com/rust-cli/anstyle.git)
-- [anstyle 1.0.6](https://github.com/rust-cli/anstyle.git)
 - [anstyle-query 1.0.2](https://github.com/rust-cli/anstyle)
+- [anstyle 1.0.6](https://github.com/rust-cli/anstyle.git)
 - [clap 4.5.2](https://github.com/clap-rs/clap)
 - [colorchoice 1.0.0](https://github.com/rust-cli/anstyle)
 
@@ -660,10 +660,10 @@ This page lists the licenses of the projects used in cargo-about.
 - [ryu 1.0.17](https://github.com/dtolnay/ryu)
 - [serde 1.0.197](https://github.com/serde-rs/serde)
 - [serde_derive 1.0.197](https://github.com/serde-rs/serde)
-- [serde_yaml 0.9.32](https://github.com/dtolnay/serde-yaml)
+- [serde_yaml 0.9.33](https://github.com/dtolnay/serde-yaml)
 - [syn 2.0.52](https://github.com/dtolnay/syn)
-- [thiserror 1.0.58](https://github.com/dtolnay/thiserror)
 - [thiserror-impl 1.0.58](https://github.com/dtolnay/thiserror)
+- [thiserror 1.0.58](https://github.com/dtolnay/thiserror)
 - [unicode-ident 1.0.12](https://github.com/dtolnay/unicode-ident)
 - [utf8parse 0.2.1](https://github.com/alacritty/vte)
 
@@ -854,6 +854,9 @@ END OF TERMS AND CONDITIONS
 - [equivalent 1.0.1](https://github.com/cuviper/equivalent)
 - [hashbrown 0.14.3](https://github.com/rust-lang/hashbrown)
 - [indexmap 2.2.5](https://github.com/indexmap-rs/indexmap)
+- [regex-automata 0.4.6](https://github.com/rust-lang/regex/tree/master/regex-automata)
+- [regex-syntax 0.8.3](https://github.com/rust-lang/regex/tree/master/regex-syntax)
+- [regex 1.10.4](https://github.com/rust-lang/regex)
 
 ```
                               Apache License
@@ -1064,8 +1067,8 @@ limitations under the License.
 
 #### Used by
 
-- [ribboncurls 0.1.0](https://github.com/tinted-theming/ribboncurls)
-- [ribboncurls-cli 0.1.0](https://github.com/tinted-theming/ribboncurls)
+- [ribboncurls 0.2.0](https://github.com/tinted-theming/ribboncurls)
+- [ribboncurls-cli 0.2.0](https://github.com/tinted-theming/ribboncurls)
 
 ```
 Apache License
@@ -1180,7 +1183,7 @@ SOFTWARE.
 
 #### Used by
 
-- [unsafe-libyaml 0.2.10](https://github.com/dtolnay/unsafe-libyaml)
+- [unsafe-libyaml 0.2.11](https://github.com/dtolnay/unsafe-libyaml)
 
 ```
 Permission is hereby granted, free of charge, to any
@@ -1206,6 +1209,38 @@ CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
+
+```
+
+### MIT License
+
+#### Used by
+
+- [aho-corasick 1.1.3](https://github.com/BurntSushi/aho-corasick)
+- [memchr 2.7.2](https://github.com/BurntSushi/memchr)
+
+```
+The MIT License (MIT)
+
+Copyright (c) 2015 Andrew Gallant
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the &quot;Software&quot;), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED &quot;AS IS&quot;, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
 
 ```
 
@@ -1239,6 +1274,20 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+```
+
+### MIT License
+
+#### Used by
+
+- [aho-corasick 1.1.3](https://github.com/BurntSushi/aho-corasick)
+- [memchr 2.7.2](https://github.com/BurntSushi/memchr)
+
+```
+This project is dual-licensed under the Unlicense and MIT licenses.
+
+You may use this code under the terms of either license.
 
 ```
 

@@ -59,19 +59,20 @@ jobs:
       - name: Get Cargo version
         id: cargo_version
         run: |
-          VERSION=$(cargo read-manifest | jq -r ".version")
+          VERSION=$(cargo read-manifest --manifest-path ./ribboncurls/Cargo.toml | jq -r ".version")
           echo "value=$VERSION" >> $GITHUB_ENV
           echo "::set-output name=value::$VERSION"
 
       - name: Abort if there is a Cargo.toml and git tag mismatch
         run: |
-          if [[ "v${{ steps.cargo_version.outputs.value }}" != "${{ github.ref_name }}" ]]; then
+          if [[ "cli-v${{ steps.cargo_version.outputs.value }}" != "${{ github.ref_name }}" ]]; then
             echo "There is a Cargo.toml version and git tag mismatch." && exit 1;
           fi
 
       - name: Attempt a publish dryrun
         run: |
-          make publish_dry
+          cargo publish --dry-run -p ribboncurls
+
 
   release:
     needs: publish_dryrun
@@ -130,7 +131,7 @@ jobs:
         with:
           use-cross: ${{ matrix.cross }}
           command: build
-          args: --release --locked --target=${{ matrix.target }} --color=always --verbose
+          args: -p ribboncurls --release --locked --target=${{ matrix.target }} --color=always --verbose
 
       - name: Install cargo-deb
         if: ${{ matrix.deb == true }}
@@ -143,14 +144,14 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: deb
-          args: --no-build --no-strip --output=. --target=${{ matrix.target }}
+          args: -p ribboncurls --no-build --no-strip --output=. --target=${{ matrix.target }}
 
       - name: Package
         shell: bash
         run: |
-          files="example.toml license.html LICENSE README.md"
+          files="example.toml THIRD_PARTY_LICENSES.md LICENSE-APACHE LICENSE-MIT README.md"
           $GITHUB_WORKSPACE/scripts/package_build \
-            "LICENSE-APACHE LICENSE-MIT README.md license.html" \
+            "THIRD_PARTY_LICENSES.md LICENSE-APACHE LICENSE-MIT README.md" \
             "${{ matrix.target }}" \
             "$GITHUB_WORKSPACE" \
             "${{ steps.cargo_version.outputs.value }}"
