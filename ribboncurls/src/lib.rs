@@ -139,8 +139,12 @@ fn render_syntax_tree(
                         right_delimiter: DEFAULT_RIGHT_DELIMITER.to_string(),
                         section_stack: Vec::new(),
                     };
-                    let partial_tokens =
-                        tokenize(partial_data.as_str().unwrap(), &mut token_ctx).expect("waaa");
+                    let partial_tokens = tokenize(
+                        partial_data
+                            .as_str()
+                            .expect("Unable to extract string from serde_yaml::Value"),
+                        &mut token_ctx,
+                    )?;
                     let mut syntax_ctx = SyntaxCtx {
                         is_root: false,
                         newline: ctx.newline,
