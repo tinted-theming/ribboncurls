@@ -19,6 +19,10 @@ pub enum RibboncurlsError {
     MissingDelimiter,
     #[error("missing end tag")]
     MissingEndTag,
+    #[error("missing data")]
+    MissingData,
+    #[error("bad tag")]
+    BadTag,
     #[error("bad input")]
     YamlParseError(#[from] serde_yaml::Error),
 }
@@ -111,12 +115,12 @@ fn render_syntax_tree(
                 }
             }
             SyntaxItem::EscapedVariable(content) => {
-                if let Some(value) = get_context_value(ctx, content.as_str()) {
+                if let Some(value) = get_context_value(ctx, content.as_str())? {
                     output.push_str(&escape_html(&serde_yaml_value_to_string(value)));
                 }
             }
             SyntaxItem::Variable(content) => {
-                if let Some(value) = get_context_value(ctx, content.as_str()) {
+                if let Some(value) = get_context_value(ctx, content.as_str())? {
                     output.push_str(&serde_yaml_value_to_string(value));
                 }
             }
@@ -164,7 +168,7 @@ fn render_syntax_tree(
                 let mut iterator_option: Option<Value> = None;
 
                 // Add section context to the ctx.data_stack
-                if let Some(section_value) = get_context_value(ctx, &ctx.section_path.join(".")) {
+                if let Some(section_value) = get_context_value(ctx, &ctx.section_path.join("."))? {
                     section_value_option = Some(section_value.clone());
                     if matches!(section_value, Value::Mapping(_)) {
                         ctx.data_stack.push(section_value.clone());
@@ -259,11 +263,11 @@ fn serde_yaml_value_to_string(value: &Value) -> String {
     }
 }
 
-fn get_context_value<'a>(ctx: &'a RenderCtx, path: &str) -> Option<&'a Value> {
+fn get_context_value<'a>(ctx: &'a RenderCtx, path: &str) -> Result<Option<&'a Value>, RibboncurlsError> {
     let context_stack = &ctx.data_stack;
 
     if path.is_empty() || ctx.data_stack.is_empty() {
-        return None;
+        return Ok(None);
     }
     // Return context for "." variables
     if path == "." {
@@ -271,16 +275,13 @@ fn get_context_value<'a>(ctx: &'a RenderCtx, path: &str) -> Option<&'a Value> {
             (Some(current_section), Some(context)) => {
                 let value_option = context.get(current_section);
                 if value_option.is_some() {
-                    return value_option;
+                    return Ok(value_option);
                 }
 
-                Some(context)
+                Ok(Some(context))
             }
-            (None, Some(context)) => Some(context),
-            _ => {
-                None
-                // throw
-            }
+            (None, Some(context)) => Ok(Some(context)),
+            _ => Err(RibboncurlsError::MissingData),
         };
     }
 
@@ -306,8 +307,7 @@ fn get_context_value<'a>(ctx: &'a RenderCtx, path: &str) -> Option<&'a Value> {
                     }
                 }
                 (None, Some(_)) | (None, None) => {
-                    // Throw
-                    return None;
+                    return Err(RibboncurlsError::BadTag);
                 }
                 (Some(_), None) => {
                     continue;
@@ -319,18 +319,18 @@ fn get_context_value<'a>(ctx: &'a RenderCtx, path: &str) -> Option<&'a Value> {
     // Check for partial path matches on property names
     for context in context_stack[context_stack_start_index..].iter().rev() {
         if context.get(path).is_some() {
-            return context.get(path);
+            return Ok(context.get(path));
         } else if let Some(value) = get_value(context, &parts.join(".")) {
-            return Some(value);
+            return Ok(Some(value));
         } else {
             // Search for values from the furthest section back to the root
             for index_outer in (0..parts.len()).rev() {
                 if let Some(Value::Mapping(_)) = get_value(context, parts[index_outer]) {
-                    return get_value(context, parts[index_outer]);
+                    return Ok(get_value(context, parts[index_outer]));
                 } else {
                     for index_inner in (index_outer + 1..parts.len()).rev() {
                         if let Some(value) = context.get(&parts[index_inner..].join(".")) {
-                            return Some(value);
+                            return Ok(Some(value));
                         }
                     }
                 }
@@ -338,7 +338,7 @@ fn get_context_value<'a>(ctx: &'a RenderCtx, path: &str) -> Option<&'a Value> {
         }
     }
 
-    None
+    Ok(None)
 }
 
 fn get_value<'a>(data: &'a Value, path: &str) -> Option<&'a Value> {

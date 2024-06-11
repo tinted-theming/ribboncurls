@@ -37,7 +37,7 @@ pub fn tokenize(template: &str, ctx: &mut TokenCtx) -> Result<Vec<Token>, Ribbon
 
                 i = end + right_delimiter_escape.len();
             } else {
-                break;
+                return Err(RibboncurlsError::MissingEndTag);
             }
         } else if current_str.starts_with(&ctx.left_delimiter) {
             // If there is a following end-delimiter
@@ -56,7 +56,7 @@ pub fn tokenize(template: &str, ctx: &mut TokenCtx) -> Result<Vec<Token>, Ribbon
 
                 i = end + right_delimiter_len;
             } else {
-                break;
+                return Err(RibboncurlsError::MissingEndTag);
             }
         } else {
             // Find the start of the next tag or end of the template
