@@ -158,10 +158,7 @@ fn render_syntax_tree(
                     output.push_str(&rendered);
                 }
             }
-            SyntaxItem::Comment {
-                text: _,
-                is_standalone: _,
-            } => {}
+            SyntaxItem::Comment { is_standalone: _ } => {}
             SyntaxItem::Delimiter { is_standalone: _ } => {}
             SyntaxItem::Section {
                 name,

@@ -25,7 +25,6 @@ pub enum SyntaxItem {
         name: String,
     },
     Comment {
-        text: String,
         is_standalone: bool,
     },
     Section {
@@ -104,7 +103,7 @@ pub fn create_syntax_tree(
                     },
                 )
             }
-            Token::Delimiter(_) => {
+            Token::Delimiter => {
                 let is_standalone = get_is_standalone(&tokens_clone, index, ctx);
 
                 push_item(
@@ -113,16 +112,13 @@ pub fn create_syntax_tree(
                     SyntaxItem::Delimiter { is_standalone },
                 )
             }
-            Token::Comment(content) => {
+            Token::Comment => {
                 let is_standalone = get_is_standalone(&tokens_clone, index, ctx);
 
                 push_item(
                     &mut syntax_tree,
                     &mut section_stack,
-                    SyntaxItem::Comment {
-                        text: content.to_string(),
-                        is_standalone,
-                    },
+                    SyntaxItem::Comment { is_standalone },
                 );
             }
             Token::OpenSection(name) => {

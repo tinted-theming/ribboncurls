@@ -10,11 +10,11 @@ pub enum Token {
     CloseSection(String),
     OpenInvertedSection(String),
     Partial(String),
-    Comment(String),
-    Delimiter((String, String)),
+    Comment,
+    Delimiter,
 }
 
-pub fn tokenize(template: &str, ctx: &mut TokenCtx) -> Result<Vec<Token>, RibboncurlsError> {
+pub(crate) fn tokenize(template: &str, ctx: &mut TokenCtx) -> Result<Vec<Token>, RibboncurlsError> {
     let mut tokens = Vec::new();
     let mut i = 0;
 
@@ -100,7 +100,7 @@ fn parse_tag(content: &str, ctx: &mut TokenCtx) -> Result<Token, RibboncurlsErro
         Some('/') => Ok(Token::CloseSection(content[1..].trim().to_string())),
         Some('^') => Ok(Token::OpenInvertedSection(content[1..].trim().to_string())),
         Some('>') => Ok(Token::Partial(content[1..].trim().to_string())),
-        Some('!') => Ok(Token::Comment(content[1..].trim().to_string())),
+        Some('!') => Ok(Token::Comment),
         Some('=') => {
             let delimiters: Vec<&str> = content[1..content.len() - 1].trim().split(' ').collect();
 
@@ -109,10 +109,7 @@ fn parse_tag(content: &str, ctx: &mut TokenCtx) -> Result<Token, RibboncurlsErro
                     ctx.left_delimiter = left_delimiter.to_string();
                     ctx.right_delimiter = right_delimiter.to_string();
 
-                    Ok(Token::Delimiter((
-                        left_delimiter.to_string(),
-                        right_delimiter.to_string(),
-                    )))
+                    Ok(Token::Delimiter)
                 }
                 _ => Err(RibboncurlsError::MissingDelimiter),
             }

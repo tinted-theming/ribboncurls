@@ -19,11 +19,7 @@ pub fn cleanup_syntax_item_text_newline_and_spacing(
 
     for (index, node) in syntax_tree.iter_mut().enumerate() {
         match node {
-            SyntaxItem::Delimiter { is_standalone }
-            | SyntaxItem::Comment {
-                text: _,
-                is_standalone,
-            } => {
+            SyntaxItem::Delimiter { is_standalone } | SyntaxItem::Comment { is_standalone } => {
                 if *is_standalone {
                     if let Some(SyntaxItem::Text(text)) = get_prev_item(&syntax_tree_clone, index) {
                         if re_ending_whitespace.is_match(text) {
