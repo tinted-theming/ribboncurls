@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.1 - 2024-06-22
+
+### Fixed
+
+- Escape single quotes when escaped variable is rendered.
+
 ## 0.2.0 - 2024-06-11
 
 ### Updated

@@ -80,7 +80,7 @@ Line2
 Line3
 
         Special chars: <script>alert('xss');</script>
-        Escaped chars: &lt;script&gt;alert('xss');&lt;/script&gt;
+        Escaped chars: &lt;script&gt;alert(&#39;xss&#39;);&lt;/script&gt;
     "#
     .trim();
 
@@ -105,14 +105,14 @@ fn comments() {
 
 #[test]
 fn escaped_and_unescaped_vars() {
-    let data = r#"html: <html><a href="">content</a></html>"#;
+    let data = r#"html: <html><a href="">'content'</a></html>"#;
     let template = "Escaped: This is some {{html}}\nUnescaped: This is some {{& html}}";
     let rendered = ribboncurls::render(template, data, None).unwrap();
 
     assert_eq!(
         rendered,
-        r#"Escaped: This is some &lt;html&gt;&lt;a href=&quot;&quot;&gt;content&lt;/a&gt;&lt;/html&gt;
-Unescaped: This is some <html><a href="">content</a></html>"#
+        r#"Escaped: This is some &lt;html&gt;&lt;a href=&quot;&quot;&gt;&#39;content&#39;&lt;/a&gt;&lt;/html&gt;
+Unescaped: This is some <html><a href="">'content'</a></html>"#
     );
 }
 
