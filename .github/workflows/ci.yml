@@ -1,4 +1,4 @@
-name: Tests
+name: CI
 on:
   push:
     branches: [main]
@@ -19,8 +19,7 @@ jobs:
         id: cargo_cache_key
         run: |
           CARGO_CACHE_KEY="${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}"
-          echo "value=$CARGO_CACHE_KEY" >> $GITHUB_ENV
-          echo "::set-output name=value::$CARGO_CACHE_KEY"
+          echo "value=$CARGO_CACHE_KEY" >> $GITHUB_OUTPUT
 
   lint:
     needs: setup-environment

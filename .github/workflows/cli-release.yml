@@ -1,101 +1,59 @@
 name: Release
 on:
-  push:
-    tags:
-      - "v[0-9]+\\.[0-9]+\\.[0-9]+"
+  workflow_dispatch:
+env:
+  CARGO_INCREMENTAL: 0
 permissions:
   contents: write
 
 jobs:
-  setup-environment:
-    runs-on: ubuntu-latest
-    outputs:
-      cargo_version: ${{ steps.cargo_version.outputs.value }}
-      cargo_cache_key: ${{ steps.cargo_cache_key.outputs.value }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
-          ref: ${{ github.ref }}
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
-
-      - name: Set cargo cache key
-        id: cargo_cache_key
-        run: |
-          CARGO_CACHE_KEY="${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}"
-          echo "value=$CARGO_CACHE_KEY" >> $GITHUB_OUTPUT
-
-      - uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-            ~/.cargo/bin
-          key: ${{ steps.cargo_cache_key.outputs.value }}
-          id: cache-cargo-release
-
-      - name: Get Cargo version
-        id: cargo_version
-        run: |
-          VERSION=$(cargo read-manifest --manifest-path ./ribboncurls-cli/Cargo.toml | jq -r ".version")
-          echo "value=$VERSION" >> $GITHUB_OUTPUT
-
-      - name: Abort if there is a Cargo.toml and git tag mismatch
-        run: |
-          if [[ "v${{ steps.cargo_version.outputs.value }}" != "${{ github.ref_name }}" ]]; then
-            echo "There is a Cargo.toml version and git tag mismatch." && exit 1;
-          fi
+  setup:
+    uses: ./.github/workflows/setup.yml
 
   check-msrv:
     uses: ./.github/workflows/msrv.yml
 
   lint:
-    needs: setup-environment
+    needs: setup
     uses: ./.github/workflows/lint.yml
     with:
-      cache-key: ${{ needs.setup-environment.outputs.cargo_cache_key }}
+      cache-key: ${{ needs.setup.outputs.cargo_cache_key }}
 
   test:
-    needs: setup-environment
+    needs: setup
     uses: ./.github/workflows/test.yml
     with:
-      cache-key: ${{ needs.setup-environment.outputs.cargo_cache_key }}
+      cache-key: ${{ needs.setup.outputs.cargo_cache_key }}
 
-  publish-dry-run:
-    needs: [setup-environment]
-    runs-on: ubuntu-latest
-    env:
-      CARGO_CACHE_KEY: ${{ needs.setup-environment.outputs.cargo_cache_key }}
-      CARGO_VERSION: ${{ needs.setup-environment.outputs.cargo_version }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
-      - uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-            ~/.cargo/bin
-          key: ${{ env.CARGO_CACHE_KEY }}
-          id: cache-cargo-test
-
-      - name: Attempt a publish dryrun
-        run: |
-          cargo publish --dry-run -p ribboncurls-cli
+  tag-release:
+    needs:
+      - setup
+      - check-msrv
+      - lint
+      - test
+    uses: ./.github/workflows/tag-release.yml
+    with:
+      git_tag_name: ${{ needs.setup.outputs.git_tag_name }}
+    secrets:
+      RElEASE: ${{ secrets.RELEASE }}
 
   create-release:
+    needs: 
+      - setup
+      - tag-release
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: taiki-e/create-gh-release-action@v1
         with:
+          ref: 'refs/tags/${{ needs.setup.outputs.git_tag_name }}'
           changelog: ribboncurls-cli/CHANGELOG.md
           token: ${{ secrets.GITHUB_TOKEN }}
 
   release:
-    needs: [publish-dry-run]
+    needs:
+      - setup
+      - create-release
     name: ${{ matrix.target }}
     runs-on: ${{ matrix.os }}
     strategy:
@@ -115,7 +73,15 @@ jobs:
       - uses: actions/checkout@v4
       - uses: taiki-e/upload-rust-binary-action@v1
         with:
+          ref: refs/tags/${{ needs.setup.outputs.git_tag_name }}
           bin: ribboncurls
-          checksum: sha256
+          manifest-path: ribboncurls-cli/Cargo.toml
           target: ${{ matrix.target }}
           token: ${{ secrets.GITHUB_TOKEN }}
+          checksum: sha256
+
+  publish-crate:
+    needs: release
+    uses: ./.github/workflows/publish-crate.yml
+    secrets:
+      CRATES_IO_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
