@@ -1,9 +1,9 @@
 [package]
 name = "ribboncurls-cli"
-version = "0.2.1"
+version = "0.3.0"
 edition = "2021"
 authors = ["Tinted Theming <tintedtheming@proton.me>"]
-license = "MIT OR Apache-2.0"
+license = "MPL-2.0"
 description = "Simple rendering of mustache templates"
 keywords = ["mustache", "template"]
 categories = ["template-engine"]
@@ -19,7 +19,7 @@ serde_yaml = "0.9.33"
 
 [dependencies.ribboncurls]
 path = "../ribboncurls"
-version = "0.2.1"
+version = "0.3.0"
 
 [[bin]]
 name = "ribboncurls"

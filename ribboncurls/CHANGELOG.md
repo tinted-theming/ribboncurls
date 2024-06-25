@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.0 - 2024-06-25
+
+## Changed
+
+- Changed project license to MPL-2.0
+
 ## 0.2.1 - 2024-06-22
 
 ### Fixed
