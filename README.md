@@ -168,9 +168,12 @@ Tinted Theming [Code of Conduct].
 
 ## License
 
-Ribboncurls is dual-licensed under the [MPL-2.0] license. For more
-information about the crates.io package third party licenses used by
-Ribboncurls, have a look at [THIRD_PARTY_LICENSES.md].
+Ribboncurls is licensed under the [MPL-2.0] license.
+
+### Third-Party Licenses
+
+This project includes third-party code licensed under the MPL-2.0
+license. See the [THIRD_PARTY_LICENSES] file for details.
 
 [Mustache]: https://mustache.github.io
 [Rust]: https://www.rust-lang.org/
@@ -178,5 +181,5 @@ Ribboncurls, have a look at [THIRD_PARTY_LICENSES.md].
 [Ribboncurls CLI tool]: ribboncurls-cli/README.md
 [MPL-2.0]: LICENSE
 [Code of Conduct]: https://github.com/tinted-theming/home/blob/main/CODE_OF_CONDUCT.md
-[THIRD_PARTY_LICENSES.md]: THIRD_PARTY_LICENSES.md
+[THIRD_PARTY_LICENSES]: THIRD_PARTY_LICENSES.md
 [mustache spec tests]: https://github.com/mustache/spec

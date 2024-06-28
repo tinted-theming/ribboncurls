@@ -99,10 +99,17 @@ information.
 
 ## License
 
-Ribboncurls is dual-licensed under the Apache 2.0 and MIT licenses.
+Ribboncurls is licensed under the [MPL-2.0] license.
+
+### Third-Party Licenses
+
+This project includes third-party code licensed under the MPL-2.0
+license. See the [THIRD_PARTY_LICENSES] file for details.
 
 [mustache]: https://mustache.github.io
 [mustache v1.4.1 spec]: https://github.com/mustache/spec/tree/v1.4.1
 [mustache partials]: https://mustache.github.io/mustache.5.html#Partials
 [repository releases]: https://github.com/tinted-theming/ribboncurls/releases/latest
-[CONTRIBUTING.md]: CONTRIBUTING.md
+[CONTRIBUTING.md]: ../CONTRIBUTING.md
+[MPL-2.0]: ../LICENSE
+[THIRD_PARTY_LICENSES]: ../THIRD_PARTY_LICENSES.md
