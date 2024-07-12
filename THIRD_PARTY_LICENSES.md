@@ -15,7 +15,7 @@ This page lists the licenses of the projects used in cargo-about.
 
 #### Used by
 
-- [clap_builder 4.5.7](https://github.com/clap-rs/clap)
+- [clap_builder 4.5.9](https://github.com/clap-rs/clap)
 - [clap_lex 0.7.1](https://github.com/clap-rs/clap)
 
 ```
@@ -441,7 +441,7 @@ This page lists the licenses of the projects used in cargo-about.
 - [anstream 0.6.14](https://github.com/rust-cli/anstyle.git)
 - [anstyle-query 1.1.0](https://github.com/rust-cli/anstyle)
 - [anstyle 1.0.7](https://github.com/rust-cli/anstyle.git)
-- [clap 4.5.7](https://github.com/clap-rs/clap)
+- [clap 4.5.9](https://github.com/clap-rs/clap)
 - [colorchoice 1.0.1](https://github.com/rust-cli/anstyle)
 - [is_terminal_polyfill 1.70.0](https://github.com/polyfill-rs/is_terminal_polyfill)
 
@@ -660,12 +660,12 @@ This page lists the licenses of the projects used in cargo-about.
 - [proc-macro2 1.0.86](https://github.com/dtolnay/proc-macro2)
 - [quote 1.0.36](https://github.com/dtolnay/quote)
 - [ryu 1.0.18](https://github.com/dtolnay/ryu)
-- [serde 1.0.203](https://github.com/serde-rs/serde)
-- [serde_derive 1.0.203](https://github.com/serde-rs/serde)
+- [serde 1.0.204](https://github.com/serde-rs/serde)
+- [serde_derive 1.0.204](https://github.com/serde-rs/serde)
 - [serde_yaml 0.9.34+deprecated](https://github.com/dtolnay/serde-yaml)
-- [syn 2.0.68](https://github.com/dtolnay/syn)
-- [thiserror-impl 1.0.61](https://github.com/dtolnay/thiserror)
-- [thiserror 1.0.61](https://github.com/dtolnay/thiserror)
+- [syn 2.0.71](https://github.com/dtolnay/syn)
+- [thiserror-impl 1.0.62](https://github.com/dtolnay/thiserror)
+- [thiserror 1.0.62](https://github.com/dtolnay/thiserror)
 - [unicode-ident 1.0.12](https://github.com/dtolnay/unicode-ident)
 - [utf8parse 0.2.2](https://github.com/alacritty/vte)
 
