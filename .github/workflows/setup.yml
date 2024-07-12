@@ -56,6 +56,7 @@ jobs:
         run: |
           crate_name="ribboncurls-cli"
           version="${{ steps.git_tag_name.outputs.value }}"
+          version=${version#v} # strip prefix 'v'
           response=$(curl -s "https://crates.io/api/v1/crates/$crate_name")
           if echo "$response" | grep -q "\"num\":\"$version\""; then
             echo "Version $version of $crate_name already exists."

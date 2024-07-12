@@ -1214,7 +1214,7 @@ You may use this code under the terms of either license.
 #### Used by
 
 - [ribboncurls 0.3.0](https://github.com/tinted-theming/ribboncurls)
-- [ribboncurls-cli 0.3.0](https://github.com/tinted-theming/ribboncurls)
+- [ribboncurls-cli 0.3.1](https://github.com/tinted-theming/ribboncurls)
 
 ```
 Mozilla Public License Version 2.0
