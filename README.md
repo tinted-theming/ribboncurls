@@ -7,7 +7,7 @@
 </p>
 
 [![Matrix Chat](https://img.shields.io/matrix/tinted-theming:matrix.org)](https://matrix.to/#/#tinted-theming:matrix.org)
-[![Crates.io](https://img.shields.io/crates/v/ribboncurls.svg)](https://crates.io/crates/ribboncurls)
+[![Crates.io](https://img.shields.io/crates/v/ribboncurls-cli.svg)](https://crates.io/crates/ribboncurls-cli)
 [![Tests](https://github.com/tinted-theming/ribboncurls/actions/workflows/ci.yml/badge.svg)](https://github.com/tinted-theming/ribboncurls/actions/workflows/ci.yml)
 
 Ribboncurls is a [Mustache] template rendering engine written in [Rust].
