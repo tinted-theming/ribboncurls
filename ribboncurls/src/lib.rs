@@ -356,7 +356,7 @@ fn get_context_value<'a>(
                 }
                 _ => {
                     for index_inner in (index_outer + 1..parts.len()).rev() {
-                        if let Some(value) = context.get(&parts[index_inner..].join(".")) {
+                        if let Some(value) = context.get(parts[index_inner..].join(".")) {
                             return Ok(Some(value));
                         }
                     }
