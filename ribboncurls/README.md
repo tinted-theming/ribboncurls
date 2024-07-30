@@ -21,12 +21,10 @@ with caution.
 ### Basic Usage
 
 ```rust
-fn main() {
-    let template = r#"Hello, {{name}}!"#;
-    let data = r#"{"name": "world"}"#;
-    let result = ribboncurls::render(template, data, None).unwrap();
-    assert_eq!(result, "Hello, world!");
-}
+let template = r#"Hello, {{name}}!"#;
+let data = r#"{"name": "world"}"#;
+let result = ribboncurls::render(template, data, None).unwrap();
+assert_eq!(result, "Hello, world!");
 ```
 
 ### With Partials
@@ -34,8 +32,7 @@ fn main() {
 The following is to make use of [mustache partials]:
 
 ```rust
-fn main() {
-    let partials = r#"
+let partials = r#"
 header: <header>Some header partial</header>
 footer: <footer>Footer partial content goes here</footer>"#;
     let template = r#"{{> header}}
@@ -45,7 +42,6 @@ Hello, {{name}}!
     let result = ribboncurls::render(template, data, Some(partials)).unwrap();
     assert_eq!(result, r#"<header>Some header partial</header>Hello, world!
 <footer>Footer partial content goes here</footer>"#);
-}
 ```
 
 ## Mustache spec tests
