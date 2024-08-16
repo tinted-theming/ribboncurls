@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.1 - 2024-08-17
+
+## Fixed
+
+- Fix bug where data isn't replaced for variables including a `.`
+  correctly by going up the context stack.
+
 ## 0.3.0 - 2024-06-25
 
 ## Changed

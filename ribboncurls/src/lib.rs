@@ -119,12 +119,12 @@ fn render_syntax_tree(
                 }
             }
             SyntaxItem::EscapedVariable(content) => {
-                if let Some(value) = get_context_value(ctx, content.as_str())? {
+                if let Some(value) = get_value_from_context(ctx, content.as_str()) {
                     output.push_str(&escape_html(&serde_yaml_value_to_string(value)));
                 }
             }
             SyntaxItem::Variable(content) => {
-                if let Some(value) = get_context_value(ctx, content.as_str())? {
+                if let Some(value) = get_value_from_context(ctx, content.as_str()) {
                     output.push_str(&serde_yaml_value_to_string(value));
                 }
             }
@@ -180,31 +180,29 @@ fn render_syntax_tree(
                     // ------------------
                     ctx.section_path.push(name.to_string());
 
-                    let mut section_value_option = None;
+                    let mut section_context_option = None;
                     let mut is_mutating_context_stack = false;
                     let mut iterator_option: Option<Value> = None;
 
                     // Add section context to the ctx.data_stack
-                    if let Some(section_value) =
-                        get_context_value(ctx, &ctx.section_path.join("."))?
-                    {
-                        section_value_option = Some(section_value.clone());
-                        if matches!(section_value, Value::Mapping(_)) {
-                            ctx.data_stack.push(section_value.clone());
+                    if let Some(section_context) = get_value_from_context(ctx, name) {
+                        section_context_option = Some(section_context.clone());
+                        if matches!(section_context, Value::Mapping(_)) {
+                            ctx.data_stack.push(section_context.clone());
 
                             is_mutating_context_stack = true;
-                        } else if matches!(section_value, Value::Sequence(_)) {
-                            iterator_option = Some(section_value.clone());
+                        } else if matches!(section_context, Value::Sequence(_)) {
+                            iterator_option = Some(section_context.clone());
                         }
                     }
 
                     // Iterate and render over the sequence
                     match (iterator_option, is_inverted) {
-                        (Some(Value::Sequence(section_value)), false) => {
-                            for item in section_value {
+                        (Some(Value::Sequence(section_context)), false) => {
+                            for item in section_context {
                                 ctx.data_stack.push(item);
 
-                                match (&section_value_option, is_inverted) {
+                                match (&section_context_option, is_inverted) {
                                     (Some(value), false) => {
                                         if is_value_truthy(value) {
                                             let section_output = render_syntax_tree(items, ctx)?;
@@ -232,7 +230,7 @@ fn render_syntax_tree(
                             }
                         }
                         // Otherwise render without iteration
-                        _ => match (section_value_option, is_inverted) {
+                        _ => match (section_context_option, is_inverted) {
                             (Some(value), false) => {
                                 if is_value_truthy(&value) {
                                     let section_output = render_syntax_tree(items, ctx)?;
@@ -284,88 +282,82 @@ fn serde_yaml_value_to_string(value: &Value) -> String {
     }
 }
 
-fn get_context_value<'a>(
-    ctx: &'a RenderCtx,
-    path: &str,
-) -> Result<Option<&'a Value>, RibboncurlsError> {
-    let context_stack = &ctx.data_stack;
-
-    if path.is_empty() || ctx.data_stack.is_empty() {
-        return Ok(None);
+fn get_value_from_context<'a>(ctx: &'a RenderCtx, path: &str) -> Option<&'a Value> {
+    let section_path = &ctx.section_path;
+    let data_stack_len = &ctx.data_stack.len();
+    if path.is_empty() {
+        return None;
     }
-    // Return context for "." variables
+
+    // Return context for "." implicit iterator variables
     if path == "." {
-        return match (ctx.section_path.last(), context_stack.last()) {
-            (Some(current_section), Some(context)) => {
-                let value_option = context.get(current_section);
+        let current_section_option = section_path.last();
+        let latest_context_option = ctx.data_stack.last();
+
+        return match (current_section_option, latest_context_option) {
+            (Some(current_section), Some(latest_context)) => {
+                let value_option = latest_context.get(current_section);
                 if value_option.is_some() {
-                    return Ok(value_option);
+                    return value_option;
                 }
 
-                Ok(Some(context))
+                Some(latest_context)
             }
-            (None, Some(context)) => Ok(Some(context)),
-            _ => Err(RibboncurlsError::MissingData),
+            (None, Some(latest_context)) => {
+                if *data_stack_len == 1 && !matches!(latest_context, Value::Mapping(_)) {
+                    return Some(latest_context);
+                }
+                None
+            }
+            (Some(_), None) | (None, None) => None,
         };
     }
 
-    let parts: Vec<&str> = if path == "." {
-        ctx.section_path.iter().map(|s| s.as_str()).collect()
-    } else {
-        path.split('.').collect::<Vec<&str>>()
-    };
+    // if `path`'s `a` in `a.b.c.d` doesn't exist in latest context, search up the context stack.
+    // If it doesn't exist anywhere, assume `"a.b"` is the property name and repeat. Once `a.b`
+    // property is found, assume `c` in `c.d` is a Mapping, if nothing is found assume `"c.d"` is a
+    // property name and search
+    if !ctx.data_stack.is_empty() {
+        let path_vec = path.split('.');
+        let mut possible_path_list = Vec::default();
+        let mut path_item_prefix = String::default();
 
-    // context_stack index at which the root path value begins
-    let mut context_stack_start_index: usize = 0;
-
-    // Does root path exist?
-    for (index, context) in context_stack.iter().enumerate().rev() {
-        if let Value::Mapping(_) = context {
-            let value_option = get_value(context, &parts.join("."));
-
-            match (parts.first(), value_option) {
-                (Some(first_part), Some(_)) => {
-                    if get_value(context, first_part).is_some() {
-                        context_stack_start_index = index;
-                        break;
-                    }
-                }
-                (None, Some(_)) | (None, None) => {
-                    return Err(RibboncurlsError::BadTag);
-                }
-                (Some(_), None) => {
-                    continue;
-                }
-            }
-        }
-    }
-
-    // Check for partial path matches on property names
-    for context in context_stack[context_stack_start_index..].iter().rev() {
-        // Return if there is a perfect match
-        if let Some(value) = get_value(context, &parts.join(".")) {
-            return Ok(Some(value));
+        for path_item in path_vec {
+            let new_path_item = if path_item_prefix.is_empty() {
+                path_item.to_string()
+            } else {
+                format!("{}.{}", path_item_prefix, path_item)
+            };
+            possible_path_list.push(new_path_item.clone());
+            path_item_prefix = new_path_item;
         }
 
-        // Search for values from the top of the section stack back to the bottom
-        for index_outer in (0..parts.len()).rev() {
-            let value_option = get_value(context, parts[index_outer]);
-            match value_option {
-                Some(Value::Mapping(_)) | Some(Value::Sequence(_)) => {
-                    return Ok(value_option);
-                }
-                _ => {
-                    for index_inner in (index_outer + 1..parts.len()).rev() {
-                        if let Some(value) = context.get(parts[index_inner..].join(".")) {
-                            return Ok(Some(value));
+        for possible_path in &possible_path_list {
+            for context in ctx.data_stack.iter().rev() {
+                let value_option = context.get(possible_path);
+
+                if let Some(value) = value_option {
+                    if let Some(target_property_name) =
+                        &path.strip_prefix(&format!("{}.", possible_path))
+                    {
+                        let result = get_value(value, target_property_name);
+
+                        if result.is_none() {
+                            return value.get(target_property_name);
+                        } else {
+                            return result;
                         }
+                    } else {
+                        return get_value(context, path);
                     }
                 }
             }
         }
-    }
 
-    Ok(None)
+        None
+    } else {
+        None
+    }
 }
 
 fn get_value<'a>(data: &'a Value, path: &str) -> Option<&'a Value> {
@@ -380,7 +372,7 @@ fn get_value<'a>(data: &'a Value, path: &str) -> Option<&'a Value> {
         return data.get(path);
     }
 
-    // Match if property `a.b.c.d` exists
+    // Match if property `a` or `a.b.c.d` exists
     if let Some(data) = data.get(path) {
         return data.get(path);
     }
