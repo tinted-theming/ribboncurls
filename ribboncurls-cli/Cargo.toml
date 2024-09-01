@@ -1,6 +1,6 @@
 [package]
 name = "ribboncurls-cli"
-version = "0.3.2"
+version = "0.4.0"
 edition = "2021"
 authors = ["Tinted Theming <tintedtheming@proton.me>"]
 license = "MPL-2.0"
@@ -19,7 +19,7 @@ serde_yaml = "0.9.33"
 
 [dependencies.ribboncurls]
 path = "../ribboncurls"
-version = "0.3.1"
+version = "0.4.0"
 
 [[bin]]
 name = "ribboncurls"

@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.4.0] - 2024-09-02
+
+### Removed
+
+- Update to latest `ribboncurls` library, where a previously existing
+  "feature" has been removed because the feature, allowing for mustache
+  data properties to include dots in the name, is disallowed in the
+  mustache spec.
+
 ## [0.3.2] - 2024-08-17
 
 ### Changed
@@ -37,6 +46,7 @@
 
 - Initial release
 
+[0.4.0]: https://github.com/tinted-theming/ribboncurls/compare/v0.3.2...v0.4.0
 [0.3.2]: https://github.com/tinted-theming/ribboncurls/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/tinted-theming/ribboncurls/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/tinted-theming/ribboncurls/compare/v0.2.1...v0.3.0

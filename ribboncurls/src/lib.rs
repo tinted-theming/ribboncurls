@@ -313,30 +313,13 @@ fn get_value_from_context<'a>(ctx: &'a RenderCtx, path: &str) -> Option<&'a Valu
         };
     }
 
-    // if `path`'s `a` in `a.b.c.d` doesn't exist in latest context, search up the context stack.
-    // If it doesn't exist anywhere, assume `"a.b"` is the property name and repeat. Once `a.b`
-    // property is found, assume `c` in `c.d` is a Mapping, if nothing is found assume `"c.d"` is a
-    // property name and search
+    // If `path`'s `a` in `a.b.c.d` doesn't exist in latest context, search up the context stack.
     if !ctx.data_stack.is_empty() {
         let path_vec = path.split('.');
-        let mut possible_path_list = Vec::default();
-        let mut path_item_prefix = String::default();
 
-        for path_item in path_vec {
-            let new_path_item = if path_item_prefix.is_empty() {
-                path_item.to_string()
-            } else {
-                format!("{}.{}", path_item_prefix, path_item)
-            };
-            possible_path_list.push(new_path_item.clone());
-            path_item_prefix = new_path_item;
-        }
-
-        for possible_path in &possible_path_list {
+        for possible_path in path_vec {
             for context in ctx.data_stack.iter().rev() {
-                let value_option = context.get(possible_path);
-
-                if let Some(value) = value_option {
+                if let Some(value) = get_value(context, possible_path) {
                     if let Some(target_property_name) =
                         &path.strip_prefix(&format!("{}.", possible_path))
                     {
@@ -416,10 +399,9 @@ fn render_sequence_of_sequences(
         if let Some(Value::Sequence(sequence)) = ctx.data_stack.last() {
             let sequence_clone = sequence.clone();
             for item in sequence_clone {
-                let meh = item.clone();
                 let name = serde_yaml_value_to_string(&item);
                 ctx.section_path.push(name);
-                ctx.data_stack.push(meh);
+                ctx.data_stack.push(item.clone());
                 if is_value_truthy(&item) {
                     let section_output = render_syntax_tree(items, ctx)?;
 

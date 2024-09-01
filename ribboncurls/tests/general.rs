@@ -202,7 +202,7 @@ fn data_with_nested_sections() {
 }
 
 #[test]
-fn prefix_variable_with_dots_is_string() {
+fn data_property_with_dots_is_not_recognised() {
     let template = "{{#a}}{{#b}}{{c.d.e.f}}{{/b}}{{/a}}";
     let data = r#"
         a:
@@ -213,7 +213,7 @@ fn prefix_variable_with_dots_is_string() {
     "#;
     let template = ribboncurls::render(template, data, None).unwrap();
 
-    assert_eq!(template, "Tinted Theming!");
+    assert!(template.is_empty());
 }
 
 #[test]
@@ -227,7 +227,7 @@ fn prefix_variable_with_dots_is_string_and_suffix_with_dots_is_string() {
     "#;
     let template = ribboncurls::render(template, data, None).unwrap();
 
-    assert_eq!(template, "Tinted Theming!");
+    assert!(template.is_empty());
 }
 
 #[test]

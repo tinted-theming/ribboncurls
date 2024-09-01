@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.0 - 2024-09-02
+
+## Changed
+
+- The "feature" where properties with dots in data property name is
+  supported is a bug according to the mustache spec so it's been
+  removed.
+
 ## 0.3.1 - 2024-08-17
 
 ## Fixed
