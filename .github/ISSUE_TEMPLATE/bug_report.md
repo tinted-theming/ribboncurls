@@ -9,24 +9,12 @@ labels: ["bug"]
 
 <!-- A clear and concise description of what the bug is. -->
 
-## Expected behavior
+## Example of the bug
 
-<!-- A clear and concise description of what you expected to happen. -->
+<!-- The most basic version of a template/data you can have while
+recreating the bug -->
 
-## Screenshots
-
-<!-- If applicable, add screenshots to help explain your problem. -->
-
-## **System**
+## System
 
 <!-- Operating system or any other system specific information that may
 be useful. -->
-
-## Minimal configuration file
-
-<!-- Add a minimal configuration file to dramatically increase your
-chances of receiving help from a maintainer. -->
-
-## Additional context
-
-<!-- Add any other context about the problem here. -->
