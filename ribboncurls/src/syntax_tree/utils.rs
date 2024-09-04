@@ -146,7 +146,6 @@ pub(crate) fn cleanup_syntax_item_text_newline_and_spacing(
 
 fn convert_usize_to_u8(val: usize) -> Result<u8, RibboncurlsError> {
     if val <= u8::MAX as usize {
-        println!("should be ok");
         Ok(val as u8)
     } else {
         Err(RibboncurlsError::StringSize)

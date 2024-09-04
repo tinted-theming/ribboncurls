@@ -278,8 +278,6 @@ fn test_operation_render_out() -> Result<()> {
     ])
     .unwrap();
 
-    println!("stdout: {}", stdout);
-
     // ------
     // Assert
     // ------

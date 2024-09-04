@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+## Fixed
+
+- Remove unintended stdout prints.
+
 ## 0.4.0 - 2024-09-02
 
 ## Changed
