@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## Added
+
+- Bump support from Mustache spec 1.4.1 to 1.4.2
+
 ## Fixed
 
 - Remove unintended stdout prints.

@@ -17,6 +17,8 @@ jobs:
     steps:
       - name: Fetch Repository
         uses: actions/checkout@v4
+        with:
+          submodules: true
 
       - name: Install stable toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1
@@ -25,7 +27,7 @@ jobs:
 
       - name: Install cargo-msrv
         # waiting for the stable release
-        run: cargo binstall cargo-msrv --version 0.16.0-beta.20 -y --force
+        run: cargo binstall cargo-msrv --version 0.16.0-beta.25 -y --force
 
       - name: Get current msrv
         id: data-msrv
@@ -35,14 +37,7 @@ jobs:
           echo "current=$current_msrv" >> "$GITHUB_OUTPUT";
 
       - name: Run cargo msrv
-        run: cargo msrv --path ./ribboncurls verify --min ${{ steps.data-msrv.outputs.current }}
-
-      - name: echo msrv info
-        if: failure()
-        run: |
-          echo "current msrv: ${{ steps.data-msrv.outputs.current }}";
-          new_msrv=$(cargo msrv --path ./ribboncurls --output-format minimal);
-          echo "new msrv: $new_msrv";
+        run: cargo clean && cargo msrv --path ./ribboncurls verify --min ${{ steps.data-msrv.outputs.current }}
 
   update-msrv:
     if: inputs.update-msrv
@@ -50,6 +45,8 @@ jobs:
     steps:
       - name: Fetch Repository
         uses: actions/checkout@v4
+        with:
+          submodules: true
 
       - run: git pull
 

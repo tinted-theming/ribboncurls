@@ -10,6 +10,7 @@ test_cli: build
 	@echo "Running cli tests and lint"
 	@echo "--------------------------"
 	cargo fmt -p ribboncurls-cli --check || { echo "Formatting check failed"; exit 1; }
+	git submodule update --init
 	cargo test -p ribboncurls-cli --release
 
 test_lib: build
@@ -17,6 +18,7 @@ test_lib: build
 	@echo "Running lib tests and lint"
 	@echo "--------------------------"
 	cargo fmt -p ribboncurls --check || { echo "Formatting check failed"; exit 1; }
+	git submodule update --init
 	cargo test -p ribboncurls --release
 
 build: install
