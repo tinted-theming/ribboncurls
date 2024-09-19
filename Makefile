@@ -25,6 +25,7 @@ build: install
 	@echo "-------------"
 	@echo "Running build"
 	@echo "-------------"
+	git submodule update --init
 	cargo build --workspace --verbose --release
 	cargo deny check || { echo "Dependency version mismatch error"; exit 1; }
 

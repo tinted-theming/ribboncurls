@@ -44,6 +44,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: true
       - uses: taiki-e/create-gh-release-action@v1
         with:
           ref: 'refs/tags/${{ needs.setup.outputs.git_tag_name }}'
@@ -77,6 +79,8 @@ jobs:
             os: macos-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: true
       - uses: taiki-e/upload-rust-binary-action@v1
         with:
           ref: refs/tags/${{ needs.setup.outputs.git_tag_name }}
