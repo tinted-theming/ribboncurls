@@ -218,12 +218,12 @@ fn data_property_with_dots_is_not_recognised() {
 
 #[test]
 fn prefix_variable_with_dots_is_string_and_suffix_with_dots_is_string() {
-    let template = "{{#a}}{{#b}}{{c.d.e.f}}{{/b}}{{/a}}";
+    let template = "{{#a}}{{^b}}{{c.d.e.f}}{{/b}}{{/a}}";
     let data = r#"
         a:
           c.d:
             e.f: Tinted Theming!
-        b: true
+        b: false
     "#;
     let template = ribboncurls::render(template, data, None).unwrap();
 

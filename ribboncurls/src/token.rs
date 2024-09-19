@@ -50,7 +50,7 @@ pub(crate) fn tokenize(template: &str, ctx: &mut TokenCtx) -> Result<Vec<Token>,
                     let content = &template[start_index..end];
 
                     if let Ok(token) = parse_tag(content, ctx) {
-                        if let Token::OpenSection(_) = token {
+                        if let Token::OpenSection(_) | Token::OpenInvertedSection(_) = token {
                             ctx.section_stack.push(token.clone());
                         }
                         if let Token::CloseSection(ref close_section_name) = token {

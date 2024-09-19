@@ -9,6 +9,7 @@
 ## Fixed
 
 - Remove unintended stdout prints.
+- Fix bug where a nested inverted-section gives an error.
 
 ## 0.4.0 - 2024-09-02
 
