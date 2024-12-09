@@ -16,14 +16,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Fetch Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.1.7
         with:
           submodules: true
 
       - name: Install stable toolchain
-        uses: actions-rust-lang/setup-rust-toolchain@v1
+        uses: actions-rust-lang/setup-rust-toolchain@1fbea72663f6d4c03efaab13560c8a24cfd2a7cc # v1.9.0
 
-      - uses: cargo-bins/cargo-binstall@main
+      - uses: cargo-bins/cargo-binstall@9330730a2ae0fec8c2d7e1653888fe7701dd409a #v1.10.3
 
       - name: Install cargo-msrv
         # waiting for the stable release
@@ -44,16 +44,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Fetch Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.1.7
         with:
           submodules: true
 
       - run: git pull
 
       - name: Install stable toolchain
-        uses: actions-rust-lang/setup-rust-toolchain@v1
+        uses: actions-rust-lang/setup-rust-toolchain@1fbea72663f6d4c03efaab13560c8a24cfd2a7cc # v1.9.0
 
-      - uses: cargo-bins/cargo-binstall@main
+      - uses: cargo-bins/cargo-binstall@9330730a2ae0fec8c2d7e1653888fe7701dd409a #v1.10.3
 
       - name: Install cargo-msrv
         # waiting for the stable release
@@ -73,7 +73,7 @@ jobs:
         run: cargo msrv --path ./ribboncurls set ${{ steps.data-msrv.outputs.new }}
 
       - name: Update readme msrv
-        uses: jacobtomlinson/gha-find-replace@v3
+        uses: jacobtomlinson/gha-find-replace@099c88fbf2a7da26b083521a8bfa13e4f0886b97 # v3.0.3
         with:
           find: ${{ steps.data-msrv.outputs.current }}
           replace: ${{ steps.data-msrv.outputs.new }}
@@ -83,7 +83,7 @@ jobs:
       - run: git pull
 
       - name: Commit and Push
-        uses: stefanzweifel/git-auto-commit-action@v5
+        uses: stefanzweifel/git-auto-commit-action@ac8823709a85c7ce090849ac3e5fe24d006f6e18 # v5.0.1
         with:
           commit_message: "Update MSRV from [${{steps.data-msrv.outputs.current}}] to [${{steps.data-msrv.outputs.new}}]"
           branch: ${{ github.head_ref }}
