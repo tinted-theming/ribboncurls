@@ -14,8 +14,9 @@ jobs:
   fmt:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/cache@v4
+      - uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.1.7
+
+      - uses: actions/cache@81382a721fc89d96eca335d0c3ba33144b2baa9d # v4.0.2
         with:
           path: |
             ~/.cargo/registry
@@ -24,7 +25,8 @@ jobs:
             ~/.cargo/bin
           key: ${{ env.CARGO_CACHE_KEY }}
         id: cache-cargo-fmt
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
+
+      - uses: actions-rust-lang/setup-rust-toolchain@1fbea72663f6d4c03efaab13560c8a24cfd2a7cc # v1.9.0
         with:
           components: rustfmt
 
@@ -34,8 +36,9 @@ jobs:
   deny:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/cache@v4
+      - uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.1.7
+
+      - uses: actions/cache@81382a721fc89d96eca335d0c3ba33144b2baa9d # v4.0.2
         with:
           path: |
             ~/.cargo/registry
@@ -44,15 +47,17 @@ jobs:
             ~/.cargo/bin
           key: ${{ env.CARGO_CACHE_KEY }}
         id: cache-cargo-deny
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
+
+      - uses: actions-rust-lang/setup-rust-toolchain@1fbea72663f6d4c03efaab13560c8a24cfd2a7cc # v1.9.0
 
       - uses: EmbarkStudios/cargo-deny-action@v1
 
   audit:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/cache@v4
+      - uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.1.7
+
+      - uses: actions/cache@81382a721fc89d96eca335d0c3ba33144b2baa9d # v4.0.2
         with:
           path: |
             ~/.cargo/registry
@@ -61,7 +66,8 @@ jobs:
             ~/.cargo/bin
           key: ${{ env.CARGO_CACHE_KEY }}
         id: cache-cargo-fmt
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
+
+      - uses: actions-rust-lang/setup-rust-toolchain@1fbea72663f6d4c03efaab13560c8a24cfd2a7cc # v1.9.0
 
       - uses: taiki-e/install-action@v2
         with:

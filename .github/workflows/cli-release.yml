@@ -43,10 +43,10 @@ jobs:
       - tag-release
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.1.7
         with:
           submodules: true
-      - uses: taiki-e/create-gh-release-action@v1
+      - uses: taiki-e/create-gh-release-action@9cde2a76da067fc609a70deac6d209b88407861f # v1.8.2
         with:
           ref: 'refs/tags/${{ needs.setup.outputs.git_tag_name }}'
           changelog: ribboncurls-cli/CHANGELOG.md
@@ -78,10 +78,10 @@ jobs:
           - target: universal-apple-darwin
             os: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.1.7
         with:
           submodules: true
-      - uses: taiki-e/upload-rust-binary-action@v1
+      - uses: taiki-e/upload-rust-binary-action@3c3ad991ff197cfb223257a5d085a58deaaab4b5 # v1.22.0
         with:
           ref: refs/tags/${{ needs.setup.outputs.git_tag_name }}
           bin: ribboncurls
