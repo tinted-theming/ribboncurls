@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- In tests, use `CARGO_BIN_EXE_ribboncurls` env var for the binary path
+  instead of assuming it exists in `./target/release` directory
+
 ## [0.4.1] - 2024-09-19
 
 ### Fixed
