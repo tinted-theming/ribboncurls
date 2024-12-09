@@ -203,13 +203,11 @@ fn data_with_nested_sections() {
 
 #[test]
 fn data_property_with_dots_is_not_recognised() {
-    let template = "{{#a}}{{#b}}{{c.d.e.f}}{{/b}}{{/a}}";
+    let template = "{{a.b.c.d}}";
     let data = r#"
         a:
-          c.d:
-            e:
-              f: Tinted Theming!
-        b: true
+          b.c:
+            d: Tinted Theming!
     "#;
     let template = ribboncurls::render(template, data, None).unwrap();
 
@@ -246,4 +244,17 @@ fn data_exists_in_parent_sections() {
     let template = ribboncurls::render(template, data, None).unwrap();
 
     assert_eq!(template, "true");
+}
+
+#[test]
+fn nested_inverted_section() {
+    let template = "{{#a}}{{^b}}{{c}}{{/b}}{{/a}}";
+    let data = r#"
+        a: true
+        b: false
+        c: Ribboncurls!
+    "#;
+    let template = ribboncurls::render(template, data, None).unwrap();
+
+    assert_eq!(template, "Ribboncurls!");
 }
