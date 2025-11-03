@@ -13,9 +13,9 @@ documentation = "https://docs.rs/ribboncurls-cli"
 readme = "README.md"
 
 [dependencies]
-anyhow = "1.0.81"
-clap = "4.5.2"
-serde_yaml = "0.9.33"
+anyhow = "1.0.100"
+clap = "4.5.51"
+serde_yaml = "0.9.34"
 
 [dependencies.ribboncurls]
 path = "../ribboncurls"

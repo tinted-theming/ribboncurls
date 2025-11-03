@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Changed
+
+- Upgrade dependencies
+
 ### Fixed
 
 - In tests, use `CARGO_BIN_EXE_ribboncurls` env var for the binary path
