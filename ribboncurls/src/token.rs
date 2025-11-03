@@ -2,7 +2,7 @@ use super::RibboncurlsError;
 use super::TokenCtx;
 
 #[derive(Clone, Debug)]
-pub(crate) enum Token {
+pub enum Token {
     Text(String),
     Variable(String),
     EscapedVariable(String),
@@ -14,7 +14,7 @@ pub(crate) enum Token {
     Delimiter,
 }
 
-pub(crate) fn tokenize(template: &str, ctx: &mut TokenCtx) -> Result<Vec<Token>, RibboncurlsError> {
+pub fn tokenize(template: &str, ctx: &mut TokenCtx) -> Result<Vec<Token>, RibboncurlsError> {
     let mut tokens = Vec::new();
     let mut i = 0;
 
@@ -33,7 +33,7 @@ pub(crate) fn tokenize(template: &str, ctx: &mut TokenCtx) -> Result<Vec<Token>,
                 let end = end + i; // index in `template`
                 let content = &template[i + left_delimiter_escape.len()..end].trim();
 
-                tokens.push(Token::Variable(content.to_string()));
+                tokens.push(Token::Variable((*content).to_string()));
 
                 i = end + right_delimiter_escape.len();
             } else {
@@ -106,8 +106,8 @@ fn parse_tag(content: &str, ctx: &mut TokenCtx) -> Result<Token, RibboncurlsErro
 
             match (delimiters.first(), delimiters.last()) {
                 (Some(left_delimiter), Some(right_delimiter)) => {
-                    ctx.left_delimiter = left_delimiter.to_string();
-                    ctx.right_delimiter = right_delimiter.to_string();
+                    ctx.left_delimiter = (*left_delimiter).to_string();
+                    ctx.right_delimiter = (*right_delimiter).to_string();
 
                     Ok(Token::Delimiter)
                 }

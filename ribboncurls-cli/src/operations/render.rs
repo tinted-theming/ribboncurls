@@ -19,8 +19,7 @@ pub fn render(
 
         for partial_path_str in partials_paths {
             let tmp_data = fs::read_to_string(partial_path_str).context(format!(
-                "Unable to read partial, does it exist? \"{}\"",
-                partial_path_str
+                "Unable to read partial, does it exist? \"{partial_path_str}\"",
             ))?;
             partials.push_str(&tmp_data);
             partials.push('\n');
@@ -30,7 +29,7 @@ pub fn render(
             partials.push_str(&partials_content);
         }
 
-        load_partials(partials)?
+        load_partials(&partials)?
     };
 
     // Combine data from data_option and data_files
@@ -39,8 +38,7 @@ pub fn render(
             let mut data_vec: Vec<String> = Vec::new();
             for data_file in data_files {
                 let tmp_data = fs::read_to_string(data_file).context(format!(
-                    "Unable to read data-file, does it exist? \"{}\"",
-                    data_file
+                    "Unable to read data-file, does it exist? \"{data_file}\"",
                 ))?;
                 data_vec.push(tmp_data);
             }
@@ -79,17 +77,14 @@ pub fn render(
 
     let output = ribboncurls::render(&template_result?, &data_string, Some(&partials))?;
 
-    match out_path_option {
-        Some(out_path) => {
-            write_to_file(&out_path, &output)?;
-            println!("Rendered output to: {}", out_path.display());
-        }
-        None => {
-            let stdout = io::stdout();
-            let mut stdout_handle = stdout.lock();
+    if let Some(out_path) = out_path_option {
+        write_to_file(&out_path, &output)?;
+        println!("Rendered output to: {}", out_path.display());
+    } else {
+        let stdout = io::stdout();
+        let mut stdout_handle = stdout.lock();
 
-            writeln!(stdout_handle, "{}", output)?;
-        }
+        writeln!(stdout_handle, "{output}")?;
     }
 
     Ok(())
@@ -125,8 +120,8 @@ pub fn write_to_file(path: &Path, contents: &str) -> Result<()> {
 }
 
 /// partials: String in yaml format
-fn load_partials(partials: String) -> Result<String> {
-    let partials: HashMap<String, PathBuf> = serde_yaml::from_str(&partials)?;
+fn load_partials(partials: &str) -> Result<String> {
+    let partials: HashMap<String, PathBuf> = serde_yaml::from_str(partials)?;
 
     let partials_with_content_result: Result<Vec<(String, String)>> = partials
         .iter()
@@ -141,10 +136,7 @@ fn load_partials(partials: String) -> Result<String> {
 
     let mut combined_content = String::new();
     for (key, content) in partials_with_content {
-        FmtWrite::write_fmt(
-            &mut combined_content,
-            format_args!("{}: {}\n", key, content),
-        )?;
+        FmtWrite::write_fmt(&mut combined_content, format_args!("{key}: {content}\n"))?;
     }
 
     Ok(combined_content.trim_end().to_string())

@@ -1,12 +1,14 @@
-use std::io::Write;
+use std::fmt::Write;
+use std::io::Write as _;
+use std::path::Path;
 
-#[derive(Default, Debug, Clone, PartialEq, serde::Deserialize)]
+#[derive(Default, Debug, Clone, PartialEq, Eq, serde::Deserialize)]
 pub struct SpecFile {
     pub overview: String,
     pub tests: Vec<Test>,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, serde::Deserialize)]
+#[derive(Default, Debug, Clone, PartialEq, Eq, serde::Deserialize)]
 pub struct Test {
     pub name: String,
     pub desc: String,
@@ -24,13 +26,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let spec_dir = std::fs::read_dir("./vendor/github.com/mustache/spec/specs")?;
     for entry_res in spec_dir {
         let entry = entry_res?;
-        let filename = entry.file_name().into_string().unwrap();
-        if !filename.ends_with(".yml") || filename.starts_with('~') {
+        let filename_str = &entry
+            .file_name()
+            .into_string()
+            .expect("Unable to get filename");
+        let filename = Path::new(&filename_str);
+        if !filename.extension().map_or(false, |ext| ext == "yml") || filename_str.starts_with('~')
+        {
             continue;
         }
         let path = entry.path();
 
-        let mod_name = filename.replace(".yml", "").replace('~', "").to_string();
+        let mod_name = filename_str.replace(".yml", "").replace('~', "");
         writeln!(output_file, "mod {mod_name} {{")?;
 
         let spec_file: SpecFile = serde_yaml::from_reader(std::fs::File::open(path)?)?;
@@ -45,12 +52,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 name.pop();
             }
 
-            let desc = test
-                .desc
-                .lines()
-                .map(|s| format!("\n            /// {s}"))
-                .collect::<Vec<_>>()
-                .join("");
+            let desc = test.desc.lines().fold(String::new(), |mut output, b| {
+                let _ = write!(output, "\n            /// {b}");
+                output
+            });
             let template = test.template;
             let data = serde_yaml::to_string(&test.data)?;
             let partials = match test.partials {

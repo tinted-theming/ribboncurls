@@ -24,3 +24,8 @@ version = "0.4.1"
 [[bin]]
 name = "ribboncurls"
 path = "src/main.rs"
+
+[lints.clippy]
+pedantic      = { level = "deny", priority = -1 }
+nursery       = { level = "deny", priority = -1 }
+unwrap_used   = "deny"
