@@ -3,7 +3,8 @@ use regex::Regex;
 use super::{RibboncurlsError, SyntaxCtx, SyntaxItem};
 use crate::utils::{get_next_item, get_prev_item, get_regex_for_newline, NewlineRegex};
 
-pub(crate) fn cleanup_syntax_item_text_newline_and_spacing(
+#[allow(clippy::too_many_lines)]
+pub fn cleanup_syntax_item_text_newline_and_spacing(
     syntax_tree: &mut Vec<SyntaxItem>,
     ctx: &SyntaxCtx,
 ) -> Result<(), RibboncurlsError> {
@@ -44,7 +45,9 @@ pub(crate) fn cleanup_syntax_item_text_newline_and_spacing(
                         let prev_index = index - 1;
 
                         if prev_index == 0 && re_whitespace.is_match(text) {
-                            *indent = convert_usize_to_u8(text.len())?;
+                            if let Ok(len_u8) = u8::try_from(text.len()) {
+                                *indent = len_u8;
+                            }
                         }
 
                         if re_ending_whitespace.is_match(text) {
@@ -102,21 +105,21 @@ pub(crate) fn cleanup_syntax_item_text_newline_and_spacing(
                             if re_empty_line.is_match(text) {
                                 syntax_text_items_to_remove.push(index - 1);
                             }
-                        };
+                        }
                     } else if let Some(SyntaxItem::Text(text)) =
                         get_prev_item(&syntax_tree_clone, index)
                     {
                         if re_ending_whitespace.is_match(text) {
                             syntax_items_remove_ending_whitespace.push(index - 1);
                         }
-                    };
+                    }
 
                     if let Some(SyntaxItem::Text(text)) = items.first_mut() {
                         if re_newline.is_match(text) {
                             *text = re_newline.replace_all(text, "").to_string();
                         }
-                    };
-                };
+                    }
+                }
             }
             _ => {}
         }
@@ -131,10 +134,10 @@ pub(crate) fn cleanup_syntax_item_text_newline_and_spacing(
     for index in syntax_items_remove_ending_whitespace {
         if let Some(SyntaxItem::Text(text)) = syntax_tree.get_mut(index) {
             *text = re_ending_whitespace.replace_all(text, "").to_string();
-        };
+        }
     }
 
-    syntax_text_items_to_remove.sort();
+    syntax_text_items_to_remove.sort_unstable();
     for index in syntax_text_items_to_remove.iter().rev() {
         if syntax_tree.get(*index).is_some() {
             syntax_tree.remove(*index);
@@ -142,12 +145,4 @@ pub(crate) fn cleanup_syntax_item_text_newline_and_spacing(
     }
 
     Ok(())
-}
-
-fn convert_usize_to_u8(val: usize) -> Result<u8, RibboncurlsError> {
-    if val <= u8::MAX as usize {
-        Ok(val as u8)
-    } else {
-        Err(RibboncurlsError::StringSize)
-    }
 }

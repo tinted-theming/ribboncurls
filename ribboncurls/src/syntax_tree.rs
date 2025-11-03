@@ -12,7 +12,7 @@ use crate::{
 };
 
 #[derive(Clone, Debug)]
-pub(crate) enum SyntaxItem {
+pub enum SyntaxItem {
     Text(String),
     Variable(String),
     EscapedVariable(String),
@@ -36,9 +36,10 @@ pub(crate) enum SyntaxItem {
     },
 }
 
-pub(crate) fn create_syntax_tree(
-    tokens: Vec<Token>,
-    ctx: &mut SyntaxCtx,
+#[allow(clippy::too_many_lines)]
+pub fn create_syntax_tree(
+    tokens: &[Token],
+    ctx: &SyntaxCtx,
 ) -> Result<Vec<SyntaxItem>, RibboncurlsError> {
     let mut syntax_tree: Vec<SyntaxItem> = Vec::new();
     let mut section_stack: Vec<SyntaxItem> = vec![];
@@ -53,7 +54,6 @@ pub(crate) fn create_syntax_tree(
     // If SyntaxItem::Text whitespace matches it must be index == 0 since all text should start
     // with newline str
     let re_whitespace = Regex::new(r"^[ \t]*\z").expect("Unable to get regex");
-    let tokens_clone = tokens.clone();
 
     for (index, token) in tokens.iter().enumerate() {
         match token {
@@ -65,7 +65,7 @@ pub(crate) fn create_syntax_tree(
                         push_item(
                             &mut syntax_tree,
                             &mut section_stack,
-                            SyntaxItem::Text(first_line.to_string()),
+                            SyntaxItem::Text((*first_line).to_string()),
                         );
                     }
 
@@ -82,38 +82,38 @@ pub(crate) fn create_syntax_tree(
             Token::Variable(content) => push_item(
                 &mut syntax_tree,
                 &mut section_stack,
-                SyntaxItem::Variable(content.to_string()),
+                SyntaxItem::Variable(content.clone()),
             ),
             Token::EscapedVariable(content) => push_item(
                 &mut syntax_tree,
                 &mut section_stack,
-                SyntaxItem::EscapedVariable(content.to_string()),
+                SyntaxItem::EscapedVariable(content.clone()),
             ),
             Token::Partial(name) => {
-                let is_standalone = get_is_standalone(&tokens_clone, index, ctx);
+                let is_standalone = get_is_standalone(tokens, index, ctx);
                 let indent = get_indent(&syntax_tree, &section_stack, ctx);
 
                 push_item(
                     &mut syntax_tree,
                     &mut section_stack,
                     SyntaxItem::Partial {
-                        name: name.to_string(),
+                        name: name.clone(),
                         is_standalone,
                         indent,
                     },
-                )
+                );
             }
             Token::Delimiter => {
-                let is_standalone = get_is_standalone(&tokens_clone, index, ctx);
+                let is_standalone = get_is_standalone(tokens, index, ctx);
 
                 push_item(
                     &mut syntax_tree,
                     &mut section_stack,
                     SyntaxItem::Delimiter { is_standalone },
-                )
+                );
             }
             Token::Comment => {
-                let is_standalone = get_is_standalone(&tokens_clone, index, ctx);
+                let is_standalone = get_is_standalone(tokens, index, ctx);
 
                 push_item(
                     &mut syntax_tree,
@@ -122,45 +122,21 @@ pub(crate) fn create_syntax_tree(
                 );
             }
             Token::OpenSection(name) => {
-                // Set standalone if applicable
-                let mut open_is_standalone = false;
+                let section = create_syntax_tree_open_section(
+                    tokens,
+                    name.clone(),
+                    index,
+                    &re_after_text,
+                    &re_before_text,
+                    &re_whitespace,
+                );
 
-                match (get_prev_item(&tokens, index), get_next_item(&tokens, index)) {
-                    (None, Some(Token::Text(after_text))) => {
-                        if re_after_text.is_match(after_text) {
-                            open_is_standalone = true;
-                        }
-                    }
-                    (Some(Token::Text(before_text)), None) => {
-                        if re_before_text.is_match(before_text)
-                            || re_whitespace.is_match(before_text)
-                        {
-                            open_is_standalone = true;
-                        }
-                    }
-                    (Some(Token::Text(before_text)), Some(Token::Text(after_text))) => {
-                        if (re_before_text.is_match(before_text)
-                            || re_whitespace.is_match(before_text))
-                            && re_after_text.is_match(after_text)
-                        {
-                            open_is_standalone = true;
-                        }
-                    }
-                    _ => {}
-                }
-
-                section_stack.push(SyntaxItem::Section {
-                    name: name.to_string(),
-                    items: Vec::new(),
-                    is_inverted: false,
-                    open_is_standalone,
-                    closed_is_standalone: false,
-                });
+                section_stack.push(section);
             }
             Token::OpenInvertedSection(name) => {
                 let mut open_is_standalone = false;
 
-                match (get_prev_item(&tokens, index), get_next_item(&tokens, index)) {
+                match (get_prev_item(tokens, index), get_next_item(tokens, index)) {
                     (None, Some(Token::Text(after_text))) => {
                         if re_after_text.is_match(after_text) {
                             open_is_standalone = true;
@@ -185,7 +161,7 @@ pub(crate) fn create_syntax_tree(
                 }
 
                 section_stack.push(SyntaxItem::Section {
-                    name: name.to_string(),
+                    name: name.clone(),
                     items: Vec::new(),
                     is_inverted: true,
                     open_is_standalone,
@@ -201,39 +177,17 @@ pub(crate) fn create_syntax_tree(
                     closed_is_standalone: _,
                 }) = section_stack.pop()
                 {
-                    let mut closed_is_standalone = false;
-                    match (get_prev_item(&tokens, index), get_next_item(&tokens, index)) {
-                        (None, Some(Token::Text(after_text))) => {
-                            if re_after_text.is_match(after_text) {
-                                closed_is_standalone = true;
-                            }
-                        }
-                        (Some(Token::Text(before_text)), None) => {
-                            if re_before_text.is_match(before_text) {
-                                closed_is_standalone = true;
-                            }
-                        }
-                        (Some(Token::Text(before_text)), Some(Token::Text(after_text))) => {
-                            if re_before_text.is_match(before_text)
-                                && re_after_text.is_match(after_text)
-                            {
-                                closed_is_standalone = true;
-                            }
-                        }
-                        _ => {}
-                    }
-
-                    push_item(
-                        &mut syntax_tree,
-                        &mut section_stack,
-                        SyntaxItem::Section {
-                            name,
-                            is_inverted,
-                            items,
-                            open_is_standalone,
-                            closed_is_standalone,
-                        },
+                    let section = create_syntax_tree_close_section(
+                        tokens,
+                        items,
+                        name,
+                        index,
+                        is_inverted,
+                        open_is_standalone,
+                        &re_after_text,
+                        &re_before_text,
                     );
+                    push_item(&mut syntax_tree, &mut section_stack, section);
                 }
             }
         }
@@ -242,6 +196,87 @@ pub(crate) fn create_syntax_tree(
     cleanup_syntax_item_text_newline_and_spacing(&mut syntax_tree, ctx)?;
 
     Ok(syntax_tree)
+}
+
+pub fn create_syntax_tree_open_section(
+    tokens: &[Token],
+    name: String,
+    index: usize,
+    re_after_text: &Regex,
+    re_before_text: &Regex,
+    re_whitespace: &Regex,
+) -> SyntaxItem {
+    // Set standalone if applicable
+    let mut open_is_standalone = false;
+
+    match (get_prev_item(tokens, index), get_next_item(tokens, index)) {
+        (None, Some(Token::Text(after_text))) => {
+            if re_after_text.is_match(after_text) {
+                open_is_standalone = true;
+            }
+        }
+        (Some(Token::Text(before_text)), None) => {
+            if re_before_text.is_match(before_text) || re_whitespace.is_match(before_text) {
+                open_is_standalone = true;
+            }
+        }
+        (Some(Token::Text(before_text)), Some(Token::Text(after_text))) => {
+            if (re_before_text.is_match(before_text) || re_whitespace.is_match(before_text))
+                && re_after_text.is_match(after_text)
+            {
+                open_is_standalone = true;
+            }
+        }
+        _ => {}
+    }
+
+    SyntaxItem::Section {
+        name,
+        items: Vec::new(),
+        is_inverted: false,
+        open_is_standalone,
+        closed_is_standalone: false,
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn create_syntax_tree_close_section(
+    tokens: &[Token],
+    items: Vec<SyntaxItem>,
+    name: String,
+    index: usize,
+    is_inverted: bool,
+    open_is_standalone: bool,
+    re_after_text: &Regex,
+    re_before_text: &Regex,
+) -> SyntaxItem {
+    let mut closed_is_standalone = false;
+    match (get_prev_item(tokens, index), get_next_item(tokens, index)) {
+        (None, Some(Token::Text(after_text))) => {
+            if re_after_text.is_match(after_text) {
+                closed_is_standalone = true;
+            }
+        }
+        (Some(Token::Text(before_text)), None) => {
+            if re_before_text.is_match(before_text) {
+                closed_is_standalone = true;
+            }
+        }
+        (Some(Token::Text(before_text)), Some(Token::Text(after_text))) => {
+            if re_before_text.is_match(before_text) && re_after_text.is_match(after_text) {
+                closed_is_standalone = true;
+            }
+        }
+        _ => {}
+    }
+
+    SyntaxItem::Section {
+        name,
+        is_inverted,
+        items,
+        open_is_standalone,
+        closed_is_standalone,
+    }
 }
 
 fn get_indent(syntax_tree: &[SyntaxItem], section_stack: &[SyntaxItem], ctx: &SyntaxCtx) -> u8 {
@@ -262,13 +297,15 @@ fn get_indent(syntax_tree: &[SyntaxItem], section_stack: &[SyntaxItem], ctx: &Sy
         if let Some(SyntaxItem::Text(text)) = last_text_item {
             let tmp_indent = re_starts_with_newline_followed_by_whitespace
                 .find(text)
-                .map_or(0, |m| m.as_str().len()) as u8;
+                .map_or(0, |m| m.as_str().len());
 
-            if tmp_indent > 1 {
-                indent = tmp_indent - 1;
+            if let Ok(tmp_indent_u8) = u8::try_from(tmp_indent) {
+                if tmp_indent_u8 > 1 {
+                    indent = tmp_indent_u8 - 1;
+                }
             }
         }
-    };
+    }
 
     // Find the last newline and determine indent
     syntax_tree.iter().rfind(|item| {
@@ -276,10 +313,12 @@ fn get_indent(syntax_tree: &[SyntaxItem], section_stack: &[SyntaxItem], ctx: &Sy
             if text.starts_with('\n') {
                 let tmp_indent = re_starts_with_newline_followed_by_whitespace
                     .find(text)
-                    .map_or(0, |m| m.as_str().len()) as u8;
+                    .map_or(0, |m| m.as_str().len());
 
-                if tmp_indent > 1 {
-                    indent = tmp_indent - 1;
+                if let Ok(tmp_indent_u8) = u8::try_from(tmp_indent) {
+                    if tmp_indent_u8 > 1 {
+                        indent = tmp_indent_u8 - 1;
+                    }
                 }
 
                 return true;

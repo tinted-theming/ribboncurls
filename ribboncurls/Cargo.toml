@@ -24,3 +24,8 @@ thiserror = "1.0.57"
 [build-dependencies]
 serde = { version = "1.0.197", features = ["derive"] }
 serde_yaml = "0.9.32"
+
+[lints.clippy]
+pedantic      = { level = "deny", priority = -1 }
+nursery       = { level = "deny", priority = -1 }
+unwrap_used   = "deny"

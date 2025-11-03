@@ -199,7 +199,7 @@ Ribboncurls is licensed under the [MPL-2.0] license.
 ### Third-Party Licenses
 
 This project includes third-party code licensed under the MPL-2.0
-license. See the [THIRD_PARTY_LICENSES] file for details.
+license. See the [`THIRD_PARTY_LICENSES`] file for details.
 
 [Mustache]: https://mustache.github.io
 [Mustache v1.4.2 spec]: https://github.com/mustache/spec/tree/v1.4.2
