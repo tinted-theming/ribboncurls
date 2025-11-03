@@ -29,13 +29,13 @@ pub enum RibboncurlsError {
     YamlParseError(#[from] serde_yaml::Error),
 }
 
-struct TokenCtx {
+pub struct TokenCtx {
     left_delimiter: String,
     right_delimiter: String,
     section_stack: Vec<Token>,
 }
 
-struct SyntaxCtx {
+pub struct SyntaxCtx {
     is_root: bool,
     newline: Newline,
 }

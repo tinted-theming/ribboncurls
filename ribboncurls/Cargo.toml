@@ -1,6 +1,6 @@
 [package]
 name = "ribboncurls"
-version = "0.4.1"
+version = "0.5.0"
 edition = "2021"
 build = "build.rs"
 authors = ["Tinted Theming <tintedtheming@proton.me>"]
@@ -12,7 +12,7 @@ homepage = "https://github.com/tinted-theming/ribboncurls"
 repository = "https://github.com/tinted-theming/ribboncurls"
 documentation = "https://docs.rs/ribboncurls"
 readme = "README.md"
-rust-version = "1.65.0"
+rust-version = "1.68.0"
 
 [dependencies]
 html-escape = "0.2.13"

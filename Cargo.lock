@@ -204,7 +204,7 @@ checksum = "7a2d987857b319362043e95f5353c0535c1f58eec5336fdfcf626430af7def58"
 
 [[package]]
 name = "ribboncurls"
-version = "0.4.1"
+version = "0.5.0"
 dependencies = [
  "html-escape",
  "regex",
@@ -215,7 +215,7 @@ dependencies = [
 
 [[package]]
 name = "ribboncurls-cli"
-version = "0.4.1"
+version = "0.5.0"
 dependencies = [
  "anyhow",
  "clap",
